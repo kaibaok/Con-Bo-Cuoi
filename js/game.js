@@ -35,6 +35,94 @@ function cowPalette(type) {
   }
 }
 
+/* ---------- Bò chibi cử động bằng xương ảo ----------
+   Mỗi con là các ảnh rời (assets/cows/rig). Mỗi khung hình ghép lại và xoay quanh khớp: bước đi, thở, cúi đầu gặm cỏ,
+   vung tay khi bị bắt, cộng thêm vài động tác ngẫu nhiên (nhảy, vẫy tay, nhìn quanh, vươn vai, nhún nhảy). */
+const RIG_CW = 299, RIG_CH = 394, RIG_IDX = { back: 0, tail: 1, legL: 2, legR: 3, body: 4, armL: 5, armR: 6, head: 7, glow: 8 };
+const RIG_TUNE = {
+  small: { rate: 1.5, amp: 1.2, hop: 1 }, big: { rate: .8, amp: .85, stomp: 1 }, fast: { rate: 2.4, amp: 1.4, lean: .12 },
+  mad: { rate: 1.3, amp: 1, jit: 1 }, red: { rate: 1.2, amp: 1, paw: 1 }, gold: { rate: 1, amp: .9, glint: 1 },
+  rainbow: { rate: 1.3, amp: 1, hue: 1, glint: 1 }, witch: { rate: 1, amp: .5, float: 1 }, ghost: { rate: .8, amp: .4, float: 1, ghost: 1 }
+};
+const RIG_ACTS = { hop: .75, wave: 1.7, look: 1.6, stretch: 1.5, dance: 2.2 };
+
+function rigPose(o, T, upset) {
+  const t = o.t || 0, A = T.amp || 1, p = {
+    bx: 0, by: 0, brot: 0, bsx: 1, bsy: 1, hrot: 0, hy: 0, rotR: 0, rotL: 0, lLy: 0, lRy: 0, lLr: 0, lRr: 0, trot: 0, krot: 0
+  };
+  const sq = o.squash || 0, moving = o.moving !== false;
+  if (upset) {
+    const yell = o.mood === 'yell', f = yell ? 1 : .55, fl = Math.sin(t * (yell ? 16 : 9)), fl2 = Math.sin(t * (yell ? 16 : 9) + 1.9);
+    p.bx = Math.sin(t * 41) * 2.2 * f; p.by = Math.sin(t * 33) * 1.4 * f; p.brot = Math.sin(t * 23) * .035 * f;
+    p.rotR = fl * .5 * f; p.rotL = -fl2 * .5 * f; p.hrot = Math.sin(t * (yell ? 30 : 12)) * (yell ? .09 : .04);
+    p.lLy = -Math.max(0, Math.sin(t * 14)) * 7 * f; p.lRy = -Math.max(0, -Math.sin(t * 14)) * 7 * f; p.lLr = -.1; p.lRr = .1;
+    p.trot = Math.sin(t * 20) * .6; p.krot = Math.sin(t * 11) * .08;
+  } else if (moving) {
+    const w = (o.walk || 0) * (T.rate || 1) * 1.8, sn = Math.sin(w);
+    p.by = -Math.abs(sn) * 5 * A * (T.hop ? 2.4 : 1); p.brot = sn * .05 * A + (T.lean || 0);
+    p.bsy = 1 - .035 * A * Math.max(0, -Math.cos(2 * w)) * (T.stomp ? 2 : 1); p.bsx = 1 + (1 - p.bsy) * .8;
+    p.rotR = -.55 * sn * A; p.rotL = -.55 * sn * A;
+    p.hrot = -sn * .06 + Math.sin(t * 1.7) * .02; p.hy = -Math.abs(Math.sin(w + .6)) * 2;
+    p.lLy = -Math.max(0, sn) * 13 * A; p.lRy = -Math.max(0, -sn) * 13 * A; p.lLr = sn * .12 * A; p.lRr = sn * .12 * A;
+    if (T.paw) { p.lRy = Math.min(p.lRy, -Math.max(0, Math.sin(t * 3)) * 18); p.lRr = Math.sin(t * 3) * .2; }
+    p.trot = Math.sin(w + 1) * .45 + Math.sin(t * 5) * .1; p.krot = Math.sin(w + .9) * .05;
+  } else {
+    p.bsy = 1 + .018 * Math.sin(t * 2.2); p.by = -(p.bsy - 1) * 40;
+    p.rotR = -Math.sin(t * 1.6) * .07; p.rotL = Math.sin(t * 1.6 + 1) * .07; p.hrot = Math.sin(t * 1.3) * .04; p.trot = Math.sin(t * 2.4) * .3;
+    if (o.headDip) { p.hy = 11 + Math.sin(t * 9) * 2; p.hrot += .04; }
+  }
+  if (!upset && T.float) {
+    p.by += Math.sin(t * 2.2) * 5 - 4; p.lLr = Math.sin(t * 2.4) * .18; p.lRr = Math.sin(t * 2.4 + 1) * .18; p.lLy = p.lRy = 0;
+    p.krot = Math.sin(t * 2.6) * .07; if (T.ghost) p.brot = Math.sin(t * 1.8) * .05;
+  }
+  if (T.jit) { p.bx += Math.sin(t * 37) * 1.6; p.brot += Math.sin(t * 29) * .02; }
+  if (sq) { p.bsy *= 1 - .08 * sq; p.bsx *= 1 + .06 * sq; }
+  // động tác ngẫu nhiên khi bò đang bình thường
+  const ap = o.actT || 0, e = Math.min(1, ap * 6, (1 - ap) * 6);
+  if (!upset && o.act === 'hop') {
+    const s = Math.sin(ap * Math.PI);
+    p.by -= s * 34; if (ap < .15) { p.by += (1 - ap / .15) * 6; p.bsy *= .92; } else p.bsy *= 1 + .06 * s;
+    p.lLy -= s * 10; p.lRy -= s * 10; p.rotR = -s * 2.4; p.rotL = s * 2.4;
+  } else if (!upset && o.act === 'wave') { p.rotR = -(2.5 + Math.sin(t * 14) * .35) * e + p.rotR * (1 - e); p.hrot += .08 * e; }
+  else if (!upset && o.act === 'look') p.hrot += Math.sin(ap * Math.PI * 2) * .22;
+  else if (!upset && o.act === 'stretch') { const s = Math.sin(ap * Math.PI); p.rotR = -2.7 * s; p.rotL = 2.7 * s; p.bsy *= 1 + .06 * s; p.hy -= 3 * s; }
+  else if (!upset && o.act === 'dance') {
+    const s = Math.sin(t * 13);
+    p.brot += s * .1 * e; p.by -= Math.abs(s) * 6 * e; p.rotR += -1.6 * e * (.5 + .5 * s); p.rotL += 1.6 * e * (.5 - .5 * s);
+  }
+  return p;
+}
+
+function drawRig(c, o, A, upset) {
+  const def = COWS[o.type], R = RIG[o.type], T = RIG_TUNE[o.type] || {}, k0 = def.skinK || 1.23, U = 140 * k0 / RIG_CH, hw = R.hw;
+  const t = o.t || 0, p = rigPose(o, T, upset), tp = upset ? (R.tailH || R.tail) : R.tail;
+  const X = x => (x - RIG_CW / 2) * U, Y = y => (y - RIG_CH) * U;
+  const img = k => c.drawImage(A, RIG_IDX[k] * RIG_CW, 0, RIG_CW, RIG_CH, X(0), Y(0), RIG_CW * U, RIG_CH * U);
+  const joint = (px, py, tx, ty, rot, fn, sx = 1, sy = 1) => {
+    c.save(); c.translate(X(px) + tx * U, Y(py) + ty * U); c.rotate(rot); c.scale(sx, sy); c.translate(-X(px), -Y(py)); fn(); c.restore();
+  };
+  if (T.ghost) { c.save(); c.globalAlpha *= .55 + .3 * Math.sin(t * 2.6); img('glow'); c.restore(); }
+  joint(150 - hw * .45, 318, 0, p.lLy, p.lLr, () => img('legL'));
+  joint(150 + hw * .45, 318, 0, p.lRy, p.lRr, () => img('legR'));
+  joint(150, 328, p.bx, p.by, p.brot, () => {
+    joint(150, 230, 0, 0, p.krot, () => img('back'));
+    joint(tp[0], tp[1], 0, 0, p.trot, () => img('tail'));
+    if (T.hue) { c.save(); try { c.filter = 'hue-rotate(' + Math.round((t * 70) % 360) + 'deg)'; } catch (e) { /* trình duyệt cũ */ } img('body'); c.restore(); } else img('body');
+    joint(150 + (hw - 4), 238, 0, 0, p.rotR, () => img('armR'));
+    joint(150 - (hw - 4), 238, 0, 0, p.rotL, () => img('armL'));
+    joint(150, 214, 0, p.hy, p.hrot, () => img('head'));
+  }, p.bsx, p.bsy);
+  if (T.glint) {
+    c.save(); c.fillStyle = T.hue ? '#fff' : '#FFF6C4';
+    for (let i = 0; i < 4; i++) {
+      const a = t * .9 + i * 1.57, k = .5 + .5 * Math.sin(t * 3.1 + i * 2.3), x = X(150 + Math.cos(a) * 92), y = Y(210 + Math.sin(a * 1.3) * 120), s = (3 + 6 * k) * U * 2.2;
+      c.globalAlpha = (o.alpha == null ? 1 : o.alpha) * k;
+      c.beginPath(); c.moveTo(x, y - s * 2); c.lineTo(x + s * .5, y - s * .5); c.lineTo(x + s * 2, y); c.lineTo(x + s * .5, y + s * .5); c.lineTo(x, y + s * 2); c.lineTo(x - s * .5, y + s * .5); c.lineTo(x - s * 2, y); c.lineTo(x - s * .5, y - s * .5); c.closePath(); c.fill();
+    }
+    c.restore();
+  }
+}
+
 function drawCow(c, o) {
   const P = cowPalette(o.type), s = o.s, f = o.face || 1, t = o.t || 0;
   const moving = o.moving !== false, sq = o.squash || 0;
@@ -76,16 +164,25 @@ function drawCow(c, o) {
     }
   }
 
+  // bò chibi cử động bằng xương ảo (nếu có đủ ảnh bộ phận và người chơi chưa chọn ảnh riêng)
+  const rigAtlas = typeof RIG !== 'undefined' && RIG[o.type] ? Skins.rig(o.type, upset) : null;
+  if (rigAtlas) { drawRig(c, o, rigAtlas, upset); c.restore(); return; }
   // hình do người chơi chọn thay cho bò vẽ sẵn
   const skin = Skins.get(o.type, upset);
   if (skin) {
-    const sw0 = o.walk || 0, k0 = (COWS[o.type] && COWS[o.type].skinK) || 1, h = 140 * k0, w = Math.min(190 * k0, h * skin.width / skin.height);
+    const sw0 = o.walk || 0, k0 = (COWS[o.type] && COWS[o.type].skinK) || 1, h = 140 * k0;
+    /* bảng ảnh nhiều khung: bước chân theo nhịp đi, giãy nhanh khi bị bắt, thở chậm khi đứng */
+    const nf = Skins.frames(o.type, skin), cw = skin.width / nf;
+    const fi = nf > 1 ? (upset ? Math.floor(t * 12) : moving ? Math.floor(Math.abs(sw0) / (Math.PI / 4)) : Math.floor(t * 2.5)) % nf : 0;
+    const w = Math.min(190 * k0, h * cw / skin.height);
     c.save();
     c.rotate((moving ? Math.sin(sw0) * .04 : 0) + (upset ? Math.sin(t * 40) * .035 : 0));
-    c.translate(0, moving && !(COWS[o.type] && COWS[o.type].fly) ? -Math.abs(Math.sin(sw0)) * 7 : 0);
+    c.translate(0, moving && nf === 1 && !(COWS[o.type] && COWS[o.type].fly) ? -Math.abs(Math.sin(sw0)) * 7 : 0);
     if (Skins.flip(o.type)) c.scale(-1, 1);
     if (Skins.oval(o.type)) { c.beginPath(); c.ellipse(0, -h / 2, w / 2, h / 2, 0, 0, TAU); c.clip(); }
-    c.drawImage(skin, -w / 2, -h, w, h);
+    const paint = (ox, a) => { const ga = c.globalAlpha; c.globalAlpha = ga * a; c.drawImage(skin, fi * cw, 0, cw, skin.height, -w / 2 + ox, -h, w, h); c.globalAlpha = ga; };
+    if (o.type === 'fast' && moving && !upset) { paint(-46, .16); paint(-24, .3); }   // bóng mờ khi chạy nhanh
+    paint(0, 1);
     c.restore();
     if (upset) {
       c.strokeStyle = '#E5382B'; c.lineWidth = 5; c.lineCap = 'round';
@@ -204,6 +301,7 @@ class Cow {
     this.state = 'walk'; this.walk = rnd(0, TAU); this.ph = rnd(0, TAU);
     this.graze = 0; this.grazeCd = rnd(1.5, 5); this.boost = 0; this.squash = 0;
     this.rewarded = false; this.cap = 0; this.vx = 0; this.tilt = 0; this.dust = 0;
+    this.act = null; this.actT = 0; this.actDur = 1; this.actCd = rnd(1.5, 4);
   }
   get s() { return laneScale(this.y) * this.def.size * .92; }
   /* độ cao khi bay: thấp xuống khi bị dây móc, lên xuống nhẹ theo nhịp */
@@ -212,7 +310,7 @@ class Cow {
   radius() { return 46 * this.s; }
   hasSkin() { return !!Skins.get(this.type, this.state === 'hooked'); }
   /* điểm vòng dây siết vào: với ảnh tự chọn là phần cổ, giữa thân ảnh phía trên */
-  neck() { return this.hasSkin() ? { x: this.x, y: this.y - 80 * this.s - this.lift() } : { x: this.x + this.face * 52 * this.s, y: this.y - 86 * this.s - this.lift() }; }
+  neck() { return this.hasSkin() ? { x: this.x, y: this.y - (this.def.skinK ? 98 : 80) * this.s - this.lift() } : { x: this.x + this.face * 52 * this.s, y: this.y - 86 * this.s - this.lift() }; }
 }
 Cow.n = 0;
 
@@ -347,6 +445,15 @@ class Game {
       const c = this.cows[i];
       c.squash = Math.max(0, c.squash - dt * 8);
       if (c.def.fly) c.fp = (c.fp || c.ph) + dt * 2.6;
+      if (c.def.frames && !this.reduce) {
+        if (c.state === 'captured') { c.act = 'hop'; c.actT = (c.cap * 2.2) % 1; }
+        else if (c.state !== 'walk') c.act = null;
+        else if (c.act) { c.actT += dt / c.actDur; if (c.actT >= 1) { c.act = null; c.actCd = rnd(3, 7); } }
+        else if ((c.actCd -= dt) <= 0 && !(c.graze > 0)) {
+          const list = c.def.fly ? ['wave', 'look', 'dance'] : Object.keys(RIG_ACTS);
+          c.act = list[Math.floor(Math.random() * list.length)]; c.actT = 0; c.actDur = RIG_ACTS[c.act];
+        }
+      }
       if (c.state === 'walk') {
         c.grazeCd -= dt;
         if (c.grazeCd <= 0 && c.boost <= 0) {
@@ -775,7 +882,7 @@ class Game {
       const sc = cow.s * (cow.scaleMul || 1);
       drawCow(c, {
         type: cow.type, x: cow.x, y: cow.y, lift: cow.lift() * (cow.scaleMul || 1), s: sc, face: cow.face, walk: cow.walk, t: this.t, ph: cow.ph,
-        mood: cow.state === 'hooked' ? (this.pull && this.pull.st === 'on' ? 'yell' : 'annoy') : 'calm', squash: cow.squash, tilt: cow.tilt, alpha: cow.alpha != null ? cow.alpha : (cow.type === 'ghost' && cow.state === 'walk' ? .72 + .22 * Math.sin(this.t * 3 + cow.ph) : undefined), moving: Math.abs(cow.vx) > 8 || Math.abs(cow.vy || 0) > 8 || cow.state === 'hooked',
+        mood: cow.state === 'hooked' ? (this.pull && this.pull.st === 'on' ? 'yell' : 'annoy') : 'calm', squash: cow.squash, tilt: cow.tilt, act: cow.act, actT: cow.actT, alpha: cow.alpha != null ? cow.alpha : (cow.type === 'ghost' && cow.state === 'walk' ? .72 + .22 * Math.sin(this.t * 3 + cow.ph) : undefined), moving: Math.abs(cow.vx) > 8 || Math.abs(cow.vy || 0) > 8 || cow.state === 'hooked',
         headDip: cow.headDip, headTilt: (cow.headTilt || 0) + (cow.state === 'hooked' && this.pull && this.pull.st === 'on' ? Math.sin(this.t * 45) * .14 : 0)
       });
     }

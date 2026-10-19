@@ -5,15 +5,15 @@ const W = 1280, H = 720;
 
 const COWS = {
   normal: { id: 'normal', name: 'Bò thường', score: 10, gold: 5, size: 1, speed: 80, escape: 6.5, hook: .92, presses: 10, struggle: .25, weight: 60, diff: 'Dễ', desc: 'Hiền lành, hay dừng lại gặm cỏ. Con vật tập sự lý tưởng.' },
-  small: { id: 'small', name: 'Bò nhỏ', score: 8, gold: 4, size: .66, speed: 115, escape: 5, hook: .74, presses: 7, struggle: .3, weight: 26, diff: 'Khó quăng trúng', desc: 'Nhỏ và chạy nhanh nên khó móc, nhưng kéo rất nhẹ.' },
-  big: { id: 'big', name: 'Bò bự', score: 25, gold: 12, size: 1.45, speed: 55, escape: 9.5, hook: .97, presses: 22, struggle: .35, weight: 34, diff: 'Cần nhiều lực kéo', desc: 'Chậm, to, dễ quăng trúng. Phải kéo bền tay mới về.' },
-  fast: { id: 'fast', name: 'Bò nhanh', score: 18, gold: 9, size: .95, speed: 160, escape: 5, hook: .8, presses: 12, struggle: .25, weight: 22, diff: 'Cửa sổ bắt ngắn', desc: 'Chạy vút qua đồng, để lại một vệt bụi. Quăng đón đầu mới trúng.' },
-  mad: { id: 'mad', name: 'Bò điên', score: 40, gold: 20, size: 1.12, speed: 100, escape: 8, hook: .86, presses: 30, struggle: .85, weight: 18, diff: 'Giãy mạnh', desc: 'Mắt trợn, sừng lớn. Giãy từng đợt, cần kéo đều và đúng nhịp.' },
-  red: { id: 'red', name: 'Bò đỏ', score: 60, gold: 30, size: 1.18, speed: 110, escape: 8.5, hook: .8, presses: 34, struggle: .95, weight: 8, rare: 1, diff: 'Rất hung hăng', desc: 'Hiếm, nổi bật, hung hăng. Phần thưởng cao cho ai đủ gan.' },
-  gold: { id: 'gold', name: 'Bò vàng', score: 80, gold: 40, size: 1.05, speed: 130, escape: 8, hook: .72, presses: 36, struggle: .65, weight: 5, rare: 1, diff: 'Khó bắt', desc: 'Lấp lánh như rơm mới gặt. Chạy nhanh, thoát nhanh.' },
-  witch: { id: 'witch', name: 'Bò phù thủy', score: 90, gold: 45, size: 1.05, speed: 125, escape: 8.5, hook: .7, presses: 38, struggle: .9, weight: 4, rare: 1, fly: 52, skinK: 1.23, halloween: 1, diff: 'Bay trên chổi', desc: 'Cưỡi chổi bay lượn trên đồng cỏ. Đội mũ nhọn, vãi sao vàng, và rất ghét bị trói.' },
-  ghost: { id: 'ghost', name: 'Bò ma', score: 70, gold: 35, size: 1, speed: 95, escape: 9, hook: .74, presses: 30, struggle: .7, weight: 4, rare: 1, fly: 38, skinK: 1.23, halloween: 1, diff: 'Bay lơ lửng, chập chờn', desc: 'Trôi lơ lửng, lúc rõ lúc mờ. Bị bắt thì hóa xanh lục và giãy rất nhanh.' },
-  rainbow: { id: 'rainbow', name: 'Bò ngũ sắc', score: 150, gold: 75, size: 1, speed: 140, escape: 9, hook: .66, presses: 44, struggle: .85, weight: 3, rare: 1, diff: 'Cực hiếm', desc: 'Truyền thuyết đồng cỏ. Thấy là phải thử một lần.' }
+  small: { id: 'small', frames: 4, skinK: 1.23, name: 'Bò nhỏ', score: 8, gold: 4, size: .66, speed: 115, escape: 5, hook: .74, presses: 7, struggle: .3, weight: 26, diff: 'Khó quăng trúng', desc: 'Nhỏ và chạy nhanh nên khó móc, nhưng kéo rất nhẹ.' },
+  big: { id: 'big', frames: 4, skinK: 1.23, name: 'Bò bự', score: 25, gold: 12, size: 1.45, speed: 55, escape: 9.5, hook: .97, presses: 22, struggle: .35, weight: 34, diff: 'Cần nhiều lực kéo', desc: 'Chậm, to, dễ quăng trúng. Phải kéo bền tay mới về.' },
+  fast: { id: 'fast', frames: 4, skinK: 1.23, name: 'Bò nhanh', score: 18, gold: 9, size: .95, speed: 160, escape: 5, hook: .8, presses: 12, struggle: .25, weight: 22, diff: 'Cửa sổ bắt ngắn', desc: 'Chạy vút qua đồng, để lại một vệt bụi. Quăng đón đầu mới trúng.' },
+  mad: { id: 'mad', frames: 4, skinK: 1.23, name: 'Bò điên', score: 40, gold: 20, size: 1.12, speed: 100, escape: 8, hook: .86, presses: 30, struggle: .85, weight: 18, diff: 'Giãy mạnh', desc: 'Mắt trợn, sừng lớn. Giãy từng đợt, cần kéo đều và đúng nhịp.' },
+  red: { id: 'red', frames: 4, skinK: 1.23, name: 'Bò đỏ', score: 60, gold: 30, size: 1.18, speed: 110, escape: 8.5, hook: .8, presses: 34, struggle: .95, weight: 8, rare: 1, diff: 'Rất hung hăng', desc: 'Hiếm, nổi bật, hung hăng. Phần thưởng cao cho ai đủ gan.' },
+  gold: { id: 'gold', frames: 4, skinK: 1.23, name: 'Bò vàng', score: 80, gold: 40, size: 1.05, speed: 130, escape: 8, hook: .72, presses: 36, struggle: .65, weight: 5, rare: 1, diff: 'Khó bắt', desc: 'Lấp lánh như rơm mới gặt. Chạy nhanh, thoát nhanh.' },
+  witch: { id: 'witch', frames: 4, name: 'Bò phù thủy', score: 90, gold: 45, size: 1.05, speed: 125, escape: 8.5, hook: .7, presses: 38, struggle: .9, weight: 4, rare: 1, fly: 52, skinK: 1.23, halloween: 1, diff: 'Bay trên chổi', desc: 'Cưỡi chổi bay lượn trên đồng cỏ. Đội mũ nhọn, vãi sao vàng, và rất ghét bị trói.' },
+  ghost: { id: 'ghost', frames: 4, name: 'Bò ma', score: 70, gold: 35, size: 1, speed: 95, escape: 9, hook: .74, presses: 30, struggle: .7, weight: 4, rare: 1, fly: 38, skinK: 1.23, halloween: 1, diff: 'Bay lơ lửng, chập chờn', desc: 'Trôi lơ lửng, lúc rõ lúc mờ. Bị bắt thì hóa xanh lục và giãy rất nhanh.' },
+  rainbow: { id: 'rainbow', frames: 4, skinK: 1.23, name: 'Bò ngũ sắc', score: 150, gold: 75, size: 1, speed: 140, escape: 9, hook: .66, presses: 44, struggle: .85, weight: 3, rare: 1, diff: 'Cực hiếm', desc: 'Truyền thuyết đồng cỏ. Thấy là phải thử một lần.' }
 };
 const COW_ORDER = ['normal', 'small', 'big', 'fast', 'mad', 'red', 'gold', 'rainbow', 'witch', 'ghost'];
 
@@ -146,7 +146,7 @@ const Ach = {
 
 /* Hình bò: ưu tiên ảnh trong thư mục assets/cows (normal.png, normal-hooked.png...), sau đó mới tới ảnh lưu trong trình duyệt. */
 const Skins = {
-  KEY: 'batbo.skins', data: {}, imgs: {}, imgsH: {}, ver: Date.now(), server: false,
+  KEY: 'batbo.skins', data: {}, imgs: {}, imgsH: {}, rigs: {}, rigsH: {}, ver: Date.now(), server: false,
   load() {
     try { this.data = JSON.parse(localStorage.getItem(this.KEY) || '{}') || {}; } catch (e) { this.data = {}; }
     Object.keys(COWS).forEach(t => this.mk(t));
@@ -163,7 +163,17 @@ const Skins = {
     };
     next();
   },
+  /* ảnh rời từng bộ phận (đầu, thân, tay, chân...) để bò cử động bằng xương ảo; chỉ dùng khi người chơi chưa chọn ảnh riêng */
+  mkRig(t) {
+    delete this.rigs[t]; delete this.rigsH[t];
+    const s = this.data[t] || {}; if (s.src || s.hooked || typeof RIG === 'undefined' || !RIG[t]) return;
+    [['', this.rigs], ['-hooked', this.rigsH]].forEach(([suf, store]) => {
+      const im = new Image(); im.onload = () => { store[t] = im; }; im.src = 'assets/cows/rig/' + t + suf + '.png?v=' + this.ver;
+    });
+  },
+  rig(t, upset) { return (upset && this.rigsH[t]) || this.rigs[t] || null; },
   mk(t) {
+    this.mkRig(t);
     const s = this.data[t] || {};
     [['src', this.imgs], ['hooked', this.imgsH]].forEach(([k, store]) => {
       delete store[t];
@@ -174,7 +184,15 @@ const Skins = {
   /* trả ảnh khi bị bắt nếu có, nếu không thì dùng ảnh bình thường */
   get(t, upset) { return (upset && this.imgsH[t]) || this.imgs[t] || null; },
   has(t, kind) { return !!(kind === 'hooked' ? this.imgsH[t] : this.imgs[t]); },
-  src(t, kind) { const im = kind === 'hooked' ? this.imgsH[t] : this.imgs[t]; return im ? im.src : ''; },
+  /* ảnh nhiều khung (bảng ảnh ngang) nếu rộng hơn hai lần chiều cao */
+  frames(t, im) { const f = (COWS[t] && COWS[t].frames) || 1; return f > 1 && im && im.width / im.height > 2 ? f : 1; },
+  src(t, kind) {
+    const im = kind === 'hooked' ? this.imgsH[t] : this.imgs[t]; if (!im) return '';
+    const f = this.frames(t, im); if (f === 1) return im.src;
+    const cw = Math.round(im.width / f), c = document.createElement('canvas'); c.width = cw; c.height = im.height;
+    c.getContext('2d').drawImage(im, 0, 0, cw, im.height, 0, 0, cw, im.height);
+    try { return c.toDataURL('image/png'); } catch (e) { return ''; }
+  },
   opt(t, key) { return !!(this.data[t] && this.data[t][key]); },
   flip(t) { return this.opt(t, 'flip'); },
   oval(t) { return this.opt(t, 'oval'); },

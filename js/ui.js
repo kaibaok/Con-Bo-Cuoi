@@ -325,7 +325,7 @@ const UI = {
         const c = cv.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height);
         c.setTransform(cv.width / 260, 0, 0, cv.width / 260, 0, 0);
         const type = cv.dataset.type, def = COWS[type];
-        drawCow(c, { type, x: 130, y: 150, s: Math.min(1.35, .75 + def.size * .45) * .98, face: 1, walk: t * 4, t, ph: 0.3, moving: true, lift: def.fly ? 26 + Math.sin(t * 2.6) * 5 : 0 });
+        drawCow(c, { type, x: 130, y: 150, s: Math.min(1.35, .75 + def.size * .45) * .98, face: 1, walk: t * 4, t, ph: 0.3, moving: true, lift: def.fly ? 26 + Math.sin(t * 2.6) * 5 : 0, act: ['hop', 'wave', 'look', 'stretch', 'dance'][Math.floor(t / 2.5) % 5], actT: (t % 2.5) / 2.5 });
       });
       this.anim = requestAnimationFrame(loop);
     };
