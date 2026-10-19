@@ -12,7 +12,7 @@ const COWS = {
   red: { id: 'red', name: 'Bò đỏ', score: 60, gold: 30, size: 1.18, speed: 110, escape: 8.5, hook: .8, presses: 34, struggle: .95, weight: 8, rare: 1, diff: 'Rất hung hăng', desc: 'Hiếm, nổi bật, hung hăng. Phần thưởng cao cho ai đủ gan.' },
   gold: { id: 'gold', name: 'Bò vàng', score: 80, gold: 40, size: 1.05, speed: 130, escape: 8, hook: .72, presses: 36, struggle: .65, weight: 5, rare: 1, diff: 'Khó bắt', desc: 'Lấp lánh như rơm mới gặt. Chạy nhanh, thoát nhanh.' },
   witch: { id: 'witch', name: 'Bò phù thủy', score: 90, gold: 45, size: 1.05, speed: 125, escape: 8.5, hook: .7, presses: 38, struggle: .9, weight: 4, rare: 1, fly: 52, skinK: 1.23, halloween: 1, diff: 'Bay trên chổi', desc: 'Cưỡi chổi bay lượn trên đồng cỏ. Đội mũ nhọn, vãi sao vàng, và rất ghét bị trói.' },
-  ghost: { id: 'ghost', name: 'Bò ma', score: 70, gold: 35, size: 1, speed: 95, escape: 9, hook: .74, presses: 30, struggle: .7, weight: 4, rare: 1, fly: 38, skinK: 1.09, halloween: 1, diff: 'Bay lơ lửng, chập chờn', desc: 'Trôi lơ lửng, lúc rõ lúc mờ. Bị bắt thì hóa xanh lục và giãy rất nhanh.' },
+  ghost: { id: 'ghost', name: 'Bò ma', score: 70, gold: 35, size: 1, speed: 95, escape: 9, hook: .74, presses: 30, struggle: .7, weight: 4, rare: 1, fly: 38, skinK: 1.23, halloween: 1, diff: 'Bay lơ lửng, chập chờn', desc: 'Trôi lơ lửng, lúc rõ lúc mờ. Bị bắt thì hóa xanh lục và giãy rất nhanh.' },
   rainbow: { id: 'rainbow', name: 'Bò ngũ sắc', score: 150, gold: 75, size: 1, speed: 140, escape: 9, hook: .66, presses: 44, struggle: .85, weight: 3, rare: 1, diff: 'Cực hiếm', desc: 'Truyền thuyết đồng cỏ. Thấy là phải thử một lần.' }
 };
 const COW_ORDER = ['normal', 'small', 'big', 'fast', 'mad', 'red', 'gold', 'rainbow', 'witch', 'ghost'];
