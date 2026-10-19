@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bắt Bò</title>
+<meta name="description" content="Bắt Bò: quăng thòng lọng, kéo thật nhanh, đổi vàng lấy dây tốt hơn.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Be+Vietnam+Pro:wght@500;700&display=swap&subset=vietnamese" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv" aria-label="Khu vực chơi"></canvas>
+
+  <div id="hud" class="hud off">
+    <div class="hud-top">
+      <div class="chip score">
+        <div class="score-line"><span class="lbl">Điểm</span><b id="hScore">0</b><span class="of">/ <span id="hTarget">100</span></span></div>
+        <div class="meter"><i id="hScoreBar"></i></div>
+      </div>
+      <div class="clock" id="hClock"><b id="hTime">90</b><span>giây</span></div>
+      <div class="top-right">
+        <div class="chip gold" id="hGoldChip"><i class="coin"></i><b id="hGold">0</b></div>
+        <button class="icon-btn" data-act="pause" aria-label="Tạm dừng (Esc)"><i></i><i></i></button>
+      </div>
+    </div>
+
+    <div class="streak" id="hStreak"></div>
+    <div class="banner" id="hBanner" role="status" aria-live="polite"></div>
+
+    <div class="pullpanel" id="hPull">
+      <div class="pp-head"><b id="pName">Bò thường</b><span id="pReward">+10 điểm, +5 vàng</span></div>
+      <div class="bar power"><i id="pPower"></i><span>Lực kéo</span></div>
+      <div class="bar escape"><i id="pEsc"></i><span>Sức chống cự của bò</span></div>
+      <div class="pp-warn" id="pWarn">Bò sắp giãy, giữ nhịp kéo!</div>
+    </div>
+
+    <button class="act throw" id="btnThrow" aria-label="Quăng dây (Space)">QUĂNG DÂY<small>Space hoặc bấm chuột</small></button>
+    <button class="act pull" id="btnPull" aria-label="Kéo (E)">KÉO<small>Nhấn thật nhanh, phím E</small></button>
+    <button class="potion" id="btnPotion" aria-label="Dùng bình năng lượng (Q)"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M19 6h10v4l-2 2v8l9 16a5 5 0 0 1-4.4 7.4H16.400A5 5 0 0 1 12 36l9-16v-8l-2-2z" fill="#6DE0B0" stroke="#0f3d36" stroke-width="3" stroke-linejoin="round"/><path d="M17 30h14" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/></svg><b id="potCount">0</b><small>Q</small></button>
+  </div>
+
+  <div id="ui" class="ui"></div>
+  <div id="toasts" aria-live="polite"></div>
+</div>
+
+<div id="rotate"><div><svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><rect x="14" y="6" width="36" height="52" rx="6" fill="none" stroke="#F6B93B" stroke-width="4"/><path d="M52 30c4-8-2-16-10-18" fill="none" stroke="#F6B93B" stroke-width="4" stroke-linecap="round"/></svg><p>Xoay ngang màn hình để bắt bò</p></div></div>
+
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+'use strict';
+/* Dữ liệu cân bằng, vật phẩm, thành tích và lưu trữ. Mọi con số ở đây chỉnh được mà không đụng tới logic. */
+
+const W = 1280, H = 720;
+
+const COWS = {
+  normal: { id: 'normal', name: 'Bò thường', score: 10, gold: 5, size: 1, speed: 80, escape: 6.5, hook: .92, presses: 10, struggle: .25, weight: 60, diff: 'Dễ', desc: 'Hiền lành, hay dừng lại gặm cỏ. Con vật tập sự lý tưởng.' },
+  small: { id: 'small', name: 'Bò nhỏ', score: 8, gold: 4, size: .66, speed: 115, escape: 5, hook: .74, presses: 7, struggle: .3, weight: 26, diff: 'Khó quăng trúng', desc: 'Nhỏ và chạy nhanh nên khó móc, nhưng kéo rất nhẹ.' },
+  big: { id: 'big', name: 'Bò bự', score: 25, gold: 12, size: 1.45, speed: 55, escape: 9.5, hook: .97, presses: 22, struggle: .35, weight: 34, diff: 'Cần nhiều lực kéo', desc: 'Chậm, to, dễ quăng trúng. Phải kéo bền tay mới về.' },
+  fast: { id: 'fast', name: 'Bò nhanh', score: 18, gold: 9, size: .95, speed: 160, escape: 5, hook: .8, presses: 12, struggle: .25, weight: 22, diff: 'Cửa sổ bắt ngắn', desc: 'Chạy vút qua đồng, để lại một vệt bụi. Quăng đón đầu mới trúng.' },
+  mad: { id: 'mad', name: 'Bò điên', score: 40, gold: 20, size: 1.12, speed: 100, escape: 8, hook: .86, presses: 30, struggle: .85, weight: 18, diff: 'Giãy mạnh', desc: 'Mắt trợn, sừng lớn. Giãy từng đợt, cần kéo đều và đúng nhịp.' },
+  red: { id: 'red', name: 'Bò đỏ', score: 60, gold: 30, size: 1.18, speed: 110, escape: 8.5, hook: .8, presses: 34, struggle: .95, weight: 8, rare: 1, diff: 'Rất hung hăng', desc: 'Hiếm, nổi bật, hung hăng. Phần thưởng cao cho ai đủ gan.' },
+  gold: { id: 'gold', name: 'Bò vàng', score: 80, gold: 40, size: 1.05, speed: 130, escape: 8, hook: .72, presses: 36, struggle: .65, weight: 5, rare: 1, diff: 'Khó bắt', desc: 'Lấp lánh như rơm mới gặt. Chạy nhanh, thoát nhanh.' },
+  witch: { id: 'witch', name: 'Bò phù thủy', score: 90, gold: 45, size: 1.05, speed: 125, escape: 8.5, hook: .7, presses: 38, struggle: .9, weight: 4, rare: 1, fly: 52, skinK: 1.23, halloween: 1, diff: 'Bay trên chổi', desc: 'Cưỡi chổi bay lượn trên đồng cỏ. Đội mũ nhọn, vãi sao vàng, và rất ghét bị trói.' },
+  ghost: { id: 'ghost', name: 'Bò ma', score: 70, gold: 35, size: 1, speed: 95, escape: 9, hook: .74, presses: 30, struggle: .7, weight: 4, rare: 1, fly: 38, skinK: 1.09, halloween: 1, diff: 'Bay lơ lửng, chập chờn', desc: 'Trôi lơ lửng, lúc rõ lúc mờ. Bị bắt thì hóa xanh lục và giãy rất nhanh.' },
+  rainbow: { id: 'rainbow', name: 'Bò ngũ sắc', score: 150, gold: 75, size: 1, speed: 140, escape: 9, hook: .66, presses: 44, struggle: .85, weight: 3, rare: 1, diff: 'Cực hiếm', desc: 'Truyền thuyết đồng cỏ. Thấy là phải thử một lần.' }
+};
+const COW_ORDER = ['normal', 'small', 'big', 'fast', 'mad', 'red', 'gold', 'rainbow', 'witch', 'ghost'];
+
+const LEVELS = [
+  { name: 'Đồng cỏ tập sự', target: 100, time: 90, maxCows: 4, speed: 1, resist: 1, weights: { normal: 80, big: 8 }, hint: 'Chủ yếu bò thường. Làm quen việc ngắm và kéo.' },
+  { name: 'Đàn bò chạy nhanh', target: 180, time: 100, maxCows: 5, speed: 1.05, resist: 1, weights: { normal: 50, small: 30, fast: 25, big: 8 }, hint: 'Có bò nhỏ và bò nhanh. Quăng đón đầu.' },
+  { name: 'Bò bự xuất hiện', target: 300, time: 110, maxCows: 5, speed: 1.05, resist: 1.03, weights: { normal: 40, big: 45, small: 15, fast: 10 }, hint: 'Nhiều bò bự. Một nâng cấp lực kéo sẽ giúp ích.' },
+  { name: 'Đàn bò điên', target: 450, time: 120, maxCows: 6, speed: 1.1, resist: 1.06, weights: { normal: 35, big: 25, mad: 35, small: 10, fast: 10 }, hint: 'Bò giãy mạnh. Giữ nhịp kéo khi có cảnh báo.' },
+  { name: 'Sắc đỏ nguy hiểm', target: 650, time: 130, maxCows: 6, speed: 1.12, resist: 1.08, weights: { normal: 30, big: 25, mad: 30, small: 10, fast: 12, red: 12 }, hint: 'Bò đỏ có thể xuất hiện. Đáng giá nhưng rất hung.' },
+  { name: 'Săn cầu vồng', target: 900, time: 150, maxCows: 7, speed: 1.15, resist: 1.1, weights: { normal: 25, big: 25, mad: 25, small: 10, fast: 12, red: 12, gold: 9, rainbow: 6 }, hint: 'Bò hiếm xuất hiện nhiều hơn. Mục tiêu điểm cao.' },
+  { name: 'Đêm Halloween', target: 1100, time: 150, maxCows: 7, speed: 1.15, resist: 1.1, halloween: true, weights: { normal: 22, big: 18, mad: 22, fast: 12, red: 8, witch: 14, ghost: 14 }, hint: 'Bò phù thủy và bò ma bay lơ lửng. Quăng dây lên cao hơn một chút.' }
+];
+function levelConfig(n) {
+  if (n <= LEVELS.length) return Object.assign({ id: n }, LEVELS[n - 1]);
+  const k = n - LEVELS.length;
+  return {
+    id: n, name: 'Thử thách vô tận ' + k, target: 900 + k * 300, time: 150, maxCows: 7,
+    speed: Math.min(1.9, 1.2 + .05 * k), resist: Math.min(1.5, 1.12 + .03 * k),
+    weights: { normal: 25, small: 22, big: 25, fast: 20, mad: 25, red: 12, gold: 9, rainbow: 6, witch: 6, ghost: 6 },
+    hint: 'Độ khó tăng dần sau mỗi màn.', endless: true
+  };
+}
+
+/* Mỗi cấp cộng ít dần: cấp cao không phá cân bằng */
+const dim = (per, l) => { let s = 0; for (let i = 0; i < l; i++) s += per * (1 - .1 * i); return s; };
+const pct = v => Math.round(v * 100);
+const ITEMS = [
+  { id: 'strong_rope', name: 'Dây thòng lọng chắc', base: 50, max: 5, desc: 'Sợi dây bện chặt, mỗi nhịp kéo hiệu quả hơn.', eff: l => dim(.05, l), fmt: v => `+${pct(v)}% lực kéo` },
+  { id: 'long_rope', name: 'Dây dài', base: 70, max: 5, desc: 'Vòng thòng lọng nằm trên cao lâu hơn, dễ chờ cổ bò chạy qua.', eff: l => dim(.08, l), fmt: v => `+${Math.round(v * 1000)} ms giữ vòng` },
+  { id: 'fast_rope', name: 'Dây bắt nhanh', base: 100, max: 5, desc: 'Dây bay nhanh, bò ít kịp đổi chỗ.', eff: l => dim(.1, l), fmt: v => `+${pct(v)}% tốc độ dây` },
+  { id: 'pull_gloves', name: 'Găng tay kéo', base: 120, max: 5, desc: 'Mỗi lần nhấn KÉO cộng thêm lực.', eff: l => dim(.06, l), fmt: v => `+${pct(v)}% lực mỗi nhấn` },
+  { id: 'grip_gloves', name: 'Găng tay chống trượt', base: 150, max: 5, desc: 'Mất ít lực hơn khi bò giãy.', eff: l => dim(.1, l), fmt: v => `-${pct(v)}% lực mất khi giãy` },
+  { id: 'precise_hook', name: 'Móc dây chuẩn xác', base: 180, max: 5, desc: 'Vòng thòng lọng rộng hơn, dễ móc hơn.', eff: l => dim(4, l), fmt: v => `+${v.toFixed(1)} vùng móc` },
+  { id: 'saddle', name: 'Yên giữ bò', base: 220, max: 5, desc: 'Bò mất nhiều thời gian hơn mới thoát được.', eff: l => dim(.08, l), fmt: v => `+${pct(v)}% thời gian thoát` },
+  { id: 'lucky', name: 'Bùa may mắn', base: 250, max: 5, desc: 'Bò hiếm xuất hiện nhiều hơn một chút.', eff: l => dim(.12, l), fmt: v => `+${pct(v)}% bò hiếm` },
+  { id: 'rainbow_rope', name: 'Dây cầu vồng', base: 500, max: 1, desc: 'Dây đổi màu cầu vồng, tăng nhẹ mọi chỉ số.', eff: l => l ? 1 : 0, fmt: v => v ? '+3% mọi chỉ số' : 'Chưa trang bị' },
+  { id: 'energy_potion', name: 'Bình năng lượng', base: 80, max: 9, consumable: true, cap: 9, desc: 'Dùng khi đang kéo: sức kéo gấp đôi trong 5 giây.', eff: l => l, fmt: v => `${v} bình` }
+];
+const ITEM = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+
+function computeGear(items) {
+  const L = id => items[id] || 0, e = id => ITEM[id].eff(L(id)), rb = L('rainbow_rope') ? 1 : 0;
+  return {
+    power: 1 + e('strong_rope') + rb * .03,
+    perPress: 1 + e('pull_gloves'),
+    grip: Math.min(.6, e('grip_gloves')),
+    range: 700,
+    hold: e('long_rope') + rb * .02,
+    ropeSpeed: 1300 * (1 + e('fast_rope')) * (1 + rb * .03),
+    loopR: 30 + e('precise_hook'),
+    hit: 1 + e('precise_hook') * .004 + rb * .03,
+    escape: 1 + e('saddle'),
+    luck: 1 + e('lucky'),
+    cool: .3,
+    rainbow: !!rb
+  };
+}
+
+const ACHV = [
+  { id: 'first', name: 'Người chăn bò mới', desc: 'Bắt con bò đầu tiên.' },
+  { id: 'speed', name: 'Tay kéo thần tốc', desc: 'Kéo xong bò bự hoặc bò nặng hơn trong dưới 2,5 giây.' },
+  { id: 'streak', name: 'Chuỗi liền tay', desc: 'Bắt 5 con liên tiếp không để tuột.' },
+  { id: 'red', name: 'Thợ săn bò đỏ', desc: 'Bắt được một con bò đỏ.' },
+  { id: 'rainbow', name: 'Săn cầu vồng', desc: 'Bắt được một con bò ngũ sắc.' },
+  { id: 'clean', name: 'Không để tuột', desc: 'Qua một màn mà không trượt dây và không để bò thoát.' },
+  { id: 'rich', name: 'Đại gia đồng cỏ', desc: 'Có trong tay 1.000 vàng.' }
+];
+
+const DEFAULT_SAVE = () => ({
+  version: 1, gold: 0, unlockedLevel: 1, bestScore: 0, bestByLevel: {},
+  items: {}, consumables: { energy_potion: 0 },
+  stats: { caught: {}, thrown: 0, missed: 0, escaped: 0, levelsWon: 0 },
+  achievements: {},
+  settings: { music: true, sfx: true, assist: false, difficulty: 1 }
+});
+
+const Save = {
+  KEY: 'batbo.save',
+  data: null,
+  load() {
+    let d = DEFAULT_SAVE();
+    try {
+      const raw = JSON.parse(localStorage.getItem(this.KEY) || 'null');
+      if (raw && typeof raw === 'object') this.merge(d, raw);
+    } catch (e) { /* bỏ qua: dùng dữ liệu mặc định */ }
+    d.gold = Math.max(0, Math.floor(+d.gold || 0));
+    d.unlockedLevel = Math.max(1, Math.floor(+d.unlockedLevel || 1));
+    d.version = 1;
+    this.data = d;
+  },
+  merge(a, b) {
+    for (const k in b) {
+      if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object') this.merge(a[k], b[k]);
+      else a[k] = b[k];
+    }
+    return a;
+  },
+  commit() { try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); } catch (e) { /* chế độ riêng tư */ } },
+  reset() { this.data = DEFAULT_SAVE(); this.commit(); }
+};
+
+const Shop = {
+  price(it, lvl) { return it.consumable ? it.base : Math.round(it.base * (1 + .6 * lvl) / 5) * 5; },
+  level(it) { return it.consumable ? (Save.data.consumables[it.id] || 0) : (Save.data.items[it.id] || 0); },
+  /* Trừ vàng đúng một lần, kiểm tra trước khi đổi dữ liệu */
+  buy(id) {
+    const it = ITEM[id], d = Save.data;
+    if (!it) return 'UNKNOWN';
+    const lvl = this.level(it);
+    if (lvl >= it.max) return 'MAX';
+    const p = this.price(it, lvl);
+    if (d.gold < p) return 'NOT_ENOUGH_GOLD';
+    d.gold -= p;
+    if (it.consumable) d.consumables[id] = lvl + 1; else d.items[id] = lvl + 1;
+    Save.commit();
+    return 'OK';
+  }
+};
+
+const Ach = {
+  cb: null,
+  unlock(id) {
+    if (Save.data.achievements[id]) return false;
+    Save.data.achievements[id] = true;
+    Save.commit();
+    if (this.cb) this.cb(ACHV.find(a => a.id === id));
+    return true;
+  }
+};
+
+/* Hình bò: ưu tiên ảnh trong thư mục assets/cows (normal.png, normal-hooked.png...), sau đó mới tới ảnh lưu trong trình duyệt. */
+const Skins = {
+  KEY: 'batbo.skins', data: {}, imgs: {}, imgsH: {}, ver: Date.now(), server: false,
+  load() {
+    try { this.data = JSON.parse(localStorage.getItem(this.KEY) || '{}') || {}; } catch (e) { this.data = {}; }
+    Object.keys(COWS).forEach(t => this.mk(t));
+  },
+  probe(t, kind, store) {
+    const base = 'assets/cows/' + t + (kind === 'hooked' ? '-hooked' : ''), exts = ['png', 'webp', 'jpg'];
+    let i = 0;
+    const next = () => {
+      if (i >= exts.length) return;
+      const im = new Image();
+      im.onload = () => { store[t] = im; };
+      im.onerror = () => { i++; next(); };
+      im.src = base + '.' + exts[i] + '?v=' + this.ver;
+    };
+    next();
+  },
+  mk(t) {
+    const s = this.data[t] || {};
+    [['src', this.imgs], ['hooked', this.imgsH]].forEach(([k, store]) => {
+      delete store[t];
+      if (s[k]) { const im = new Image(); im.onload = () => { store[t] = im; }; im.src = s[k]; }
+      else this.probe(t, k, store);
+    });
+  },
+  /* trả ảnh khi bị bắt nếu có, nếu không thì dùng ảnh bình thường */
+  get(t, upset) { return (upset && this.imgsH[t]) || this.imgs[t] || null; },
+  has(t, kind) { return !!(kind === 'hooked' ? this.imgsH[t] : this.imgs[t]); },
+  src(t, kind) { const im = kind === 'hooked' ? this.imgsH[t] : this.imgs[t]; return im ? im.src : ''; },
+  opt(t, key) { return !!(this.data[t] && this.data[t][key]); },
+  flip(t) { return this.opt(t, 'flip'); },
+  oval(t) { return this.opt(t, 'oval'); },
+  save() { try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); return true; } catch (e) { return false; } },
+  /* lưu trong trình duyệt (khi không có máy chủ) */
+  set(t, kind, src) { const s = this.data[t] || (this.data[t] = {}); s[kind] = src; this.mk(t); return this.save(); },
+  /* ảnh đã được máy chủ ghi vào thư mục assets/cows */
+  setFile(t, kind) { if (this.data[t]) delete this.data[t][kind]; this.ver = Date.now(); this.save(); this.mk(t); },
+  toggle(t, key) { const s = this.data[t] || (this.data[t] = {}); s[key] = !s[key]; this.save(); },
+  clear(t) {
+    delete this.data[t]; this.save(); delete this.imgs[t]; delete this.imgsH[t];
+    fetch('/api/skin?type=' + t, { method: 'DELETE' }).catch(() => { /* không có máy chủ */ });
+  }
+};
+Skins.load();
