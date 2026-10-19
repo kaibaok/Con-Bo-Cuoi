@@ -53,7 +53,16 @@ const Sound = (() => {
     lose() { [392, 330, 262, 196].forEach((f, i) => tone(f, .3, 'triangle', .15, .98, i * .14)); },
     start() { tone(392, .12, 'triangle', .14); tone(523, .12, 'triangle', .14, 0, .12); tone(784, .3, 'triangle', .16, 0, .24); },
     moo() { tone(130, .55, 'sawtooth', .09, .78); tone(135, .55, 'sawtooth', .05, .8, .02); },
-    tink() { tone(1500, .1, 'triangle', .08, 1.5); }
+    tink() { tone(1500, .1, 'triangle', .08, 1.5); },
+    shot() { noise(.09, .32, 3200, 800); tone(240, .07, 'square', .09, .4); },
+    rifle() { noise(.06, .26, 2600, 900); tone(190, .05, 'square', .07, .5); },
+    swoosh() { noise(.4, .22, 500, 2200, 0, 1.1); },
+    lob() { tone(150, .26, 'triangle', .2, .5); noise(.2, .25, 600, 200); },
+    rocket() { noise(.45, .35, 400, 1800, 0, .9); tone(110, .3, 'sawtooth', .14, .6); },
+    boom() { noise(.7, .6, 900, 50, 0, .8); tone(70, .55, 'sine', .42, .35); },
+    laser() { tone(1500, .14, 'sawtooth', .05, .55); tone(900, .14, 'sine', .06, .7); },
+    flame() { noise(.16, .2, 1100, 300, 0, .7); },
+    ko() { tone(720, .14, 'triangle', .13, .5); tone(1080, .2, 'triangle', .11, .5, .08); }
   };
   function play(name, a) { if (!ctx || !sfxOn) return; const f = SFX[name]; if (f) f(a); }
 

@@ -84,11 +84,16 @@ const ACHV = [
 ];
 
 const DEFAULT_SAVE = () => ({
-  version: 1, player: '', gold: 0, unlockedLevel: 1, bestScore: 0, bestByLevel: {},
+  version: 1, player: '', mode: 'catch', gold: 0, unlockedLevel: 1, bestScore: 0, bestByLevel: {},
   items: {}, consumables: { energy_potion: 0 },
   stats: { caught: {}, thrown: 0, missed: 0, escaped: 0, levelsWon: 0 },
   achievements: {},
-  settings: { music: true, sfx: true, assist: false, difficulty: 1 }
+  settings: { music: true, sfx: true, assist: false, difficulty: 1 },
+  /* Bắn Bò có vàng, màn đã mở, kho súng và thành tích riêng */
+  shoot: {
+    gold: 0, unlockedLevel: 1, bestScore: 0, bestByLevel: {}, weapons: { pistol: 1 }, equipped: 'pistol',
+    stats: { killed: {}, shots: 0, hits: 0, levelsWon: 0 }, achievements: {}
+  }
 });
 
 const Save = {
@@ -103,6 +108,11 @@ const Save = {
     d.gold = Math.max(0, Math.floor(+d.gold || 0));
     d.unlockedLevel = Math.max(1, Math.floor(+d.unlockedLevel || 1));
     d.version = 1;
+    const sh = d.shoot;
+    sh.gold = Math.max(0, Math.floor(+sh.gold || 0)); sh.unlockedLevel = Math.max(1, Math.floor(+sh.unlockedLevel || 1));
+    sh.weapons.pistol = Math.max(1, +sh.weapons.pistol || 1);
+    if (!(sh.weapons[sh.equipped] > 0)) sh.equipped = 'pistol';
+    if (d.mode !== 'shoot') d.mode = 'catch';
     this.data = d;
   },
   merge(a, b) {
@@ -126,12 +136,12 @@ const Board = {
     return [...m.values()].sort((a, b) => b.score - a.score || a.ts - b.ts).slice(0, 50);
   },
   localRuns() { try { const r = JSON.parse(localStorage.getItem(this.KEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e) { return []; } },
-  async list() {
+  async list(mode = 'catch') {
     try {
-      const r = await fetch('api/scores.php', { cache: 'no-store' });
+      const r = await fetch('api/scores.php?mode=' + mode, { cache: 'no-store' });
       if (!r.ok) throw new Error('x');
       return { rows: await r.json(), shared: true };
-    } catch (e) { return { rows: this.best(this.localRuns()), shared: false }; }
+    } catch (e) { return { rows: this.best(this.localRuns().filter(x => (x.mode || 'catch') === mode)), shared: false }; }
   },
   async submit(e) {
     try {
@@ -141,10 +151,13 @@ const Board = {
     } catch (err) {
       const runs = this.localRuns(); runs.push(Object.assign({ ts: Date.now() }, e));
       try { localStorage.setItem(this.KEY, JSON.stringify(runs.slice(-300))); } catch (e2) { /* chế độ riêng tư */ }
-      return { rows: this.best(runs), shared: false };
+      return { rows: this.best(runs.filter(x => (x.mode || 'catch') === (e.mode || 'catch'))), shared: false };
     }
   }
 };
+
+/* Dữ liệu của kiểu chơi đang chọn: vàng và màn đã mở nằm riêng theo kiểu */
+const cur = () => Save.data.mode === 'shoot' ? Save.data.shoot : Save.data;
 
 const Shop = {
   price(it, lvl) { return it.consumable ? it.base : Math.round(it.base * (1 + .6 * lvl) / 5) * 5; },

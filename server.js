@@ -45,14 +45,14 @@ function api(req, res, url) {
 const SCORES = path.join(ROOT, 'scores.json');
 let scores = [];
 try { scores = JSON.parse(fs.readFileSync(SCORES, 'utf8')); if (!Array.isArray(scores)) scores = []; } catch (_) { scores = []; }
-function board() {
+function board(mode) {
   const best = new Map();
-  scores.forEach(e => { const k = e.name.toLowerCase(); if (!best.has(k) || e.score > best.get(k).score) best.set(k, e); });
+  scores.filter(e => (e.mode || 'catch') === mode).forEach(e => { const k = e.name.toLowerCase(); if (!best.has(k) || e.score > best.get(k).score) best.set(k, e); });
   return [...best.values()].sort((a, b) => b.score - a.score || a.ts - b.ts).slice(0, 50);
 }
-function scoresApi(req, res) {
+function scoresApi(req, res, url) {
   const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
-  if (req.method === 'GET') return send(200, board());
+  if (req.method === 'GET') return send(200, board(url.searchParams.get('mode') === 'shoot' ? 'shoot' : 'catch'));
   if (req.method !== 'POST') return send(405, {});
   let size = 0; const chunks = [];
   req.on('data', c => { size += c.length; if (size > 4096) { req.destroy(); } else chunks.push(c); });
@@ -60,17 +60,18 @@ function scoresApi(req, res) {
     let b; try { b = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch (_) { return send(400, {}); }
     const name = String(b.name || '').replace(/[\x00-\x1f<>]/g, '').trim().slice(0, 16), score = Math.floor(+b.score), level = Math.floor(+b.level) || 1;
     if (!name || !(score >= 0) || score > 1e6) return send(400, {});
-    scores.push({ name, score, level, win: !!b.win, ts: Date.now() });
+    const mode = b.mode === 'shoot' ? 'shoot' : 'catch';
+    scores.push({ name, score, level, mode, win: !!b.win, ts: Date.now() });
     if (scores.length > 1000) scores = scores.slice(-1000);
     fs.writeFile(SCORES, JSON.stringify(scores), () => {});
-    send(200, board());
+    send(200, board(mode));
   });
 }
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/api/skin') return api(req, res, url);
-  if (url.pathname === '/api/scores.php') return scoresApi(req, res);
+  if (url.pathname === '/api/scores.php') return scoresApi(req, res, url);
   let p = decodeURIComponent(url.pathname);
   if (p === '/') p = fs.existsSync(path.join(ROOT, 'index.html')) ? '/index.html' : '/index.php';
   const file = path.normalize(path.join(ROOT, p));

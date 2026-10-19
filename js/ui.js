@@ -25,16 +25,17 @@ const UI = {
 
   init() {
     const q = id => document.getElementById(id);
-    ['hud', 'ui', 'toasts', 'hScore', 'hTarget', 'hScoreBar', 'hTime', 'hClock', 'hGold', 'hGoldChip', 'hStreak', 'hBanner', 'hPull', 'pName', 'pReward', 'pPower', 'pEsc', 'pWarn', 'btnThrow', 'btnPull', 'btnPotion', 'potCount', 'stage']
+    ['hud', 'ui', 'toasts', 'hScore', 'hTarget', 'hScoreBar', 'hTime', 'hClock', 'hGold', 'hGoldChip', 'hStreak', 'hBanner', 'hPull', 'pName', 'pReward', 'pPower', 'pEsc', 'pWarn', 'btnThrow', 'btnPull', 'btnPotion', 'potCount', 'stage', 'hWeapons', 'btnFire']
       .forEach(id => this.el[id] = q(id));
     const hint = document.createElement('div'); hint.className = 'hint'; hint.id = 'hHint'; this.el.hud.appendChild(hint); this.el.hint = hint;
     this.fit(); game.resize();
     addEventListener('resize', () => { this.fit(); game.resize(); });
     if (window.ResizeObserver) new ResizeObserver(() => { const r = game.cv.getBoundingClientRect(); if (Math.abs(r.width * Math.min(devicePixelRatio || 1, 2) - game.cv.width) > 2) game.resize(); }).observe(this.el.stage);
     this.bind();
-    Ach.cb = a => this.toast(`<b>Thành tích mới</b><span>${esc(a.name)}</span>`, 'achv');
+    Ach.cb = SAch.cb = a => this.toast(`<b>Thành tích mới</b><span>${esc(a.name)}</span>`, 'achv');
+    this.applyMode();
     this.applySettings();
-    this.dispGold = Save.data.gold;
+    this.dispGold = cur().gold;
   },
 
   fit() {
@@ -42,6 +43,23 @@ const UI = {
     const w = Math.min(vw, vh * 16 / 9), h = w * 9 / 16, st = this.el.stage;
     st.style.width = w + 'px'; st.style.height = h + 'px';
     st.style.setProperty('--p', (w / 1280) + 'px');
+  },
+
+  /* Bắt bò hay Bắn bò: đổi màu giao diện, kiểu chơi của game và nền demo ở menu */
+  applyMode() {
+    const shoot = Save.data.mode === 'shoot';
+    this.el.stage.classList.toggle('m-shoot', shoot);
+    if (game.kind !== Save.data.mode) game.setKind(Save.data.mode);
+  },
+  setMode(m) {
+    if (Save.data.mode === m) return;
+    Save.data.mode = m; Save.commit(); this.applyMode(); this.show('menu');
+  },
+  ownedWeapons() { return WEAPONS.filter(w => Arsenal.owned(w.id)); },
+  buildWeaponBar() {
+    const own = this.ownedWeapons();
+    this.el.hWeapons.innerHTML = own.map((w, i) => `<button class="wslot" data-act="wep" data-id="${w.id}" aria-label="${esc(w.name)} (phím ${i + 1})" title="${esc(w.name)}">${wicon(w.id)}<kbd>${i + 1}</kbd></button>`).join('');
+    this.last.wep = null;
   },
 
   applySettings() { const s = Save.data.settings; Sound.setMusic(s.music); Sound.setSfx(s.sfx); },
@@ -55,8 +73,13 @@ const UI = {
       Sound.init();
       if (game.mode !== 'play' || game.paused) return;
       const p = toLogical(e); game.setAimPoint(p.x, p.y);
+      if (game.kind === 'shoot') { game.shHold(true); return; }
       if (game.pull) game.press(); else { game.aimAng = game.aimTarget; game.throwRope(); }
     });
+    const release = () => { if (game.kind === 'shoot' && game.mode === 'play') game.shHold(false); };
+    ['pointerup', 'pointercancel'].forEach(ev => addEventListener(ev, release));
+    addEventListener('blur', release);
+    this.el.btnFire.addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); game.shHold(true); });
     this.el.btnThrow.addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); game.throwRope(); });
     const pullDown = e => { e.preventDefault(); game.assistHeld = true; game.press(); };
     this.el.btnPull.addEventListener('pointerdown', pullDown);
@@ -79,6 +102,13 @@ const UI = {
       const k = e.key;
       if (k === 'Escape') { e.preventDefault(); this.back(); return; }
       if (game.mode !== 'play' || game.paused) return;
+      if (game.kind === 'shoot') {
+        if (k === ' ' || k === 'Spacebar') { e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); if (!e.repeat) game.shHold(true); }
+        else if (/^[1-9]$/.test(k)) { const w = this.ownedWeapons()[+k - 1]; if (w) game.shEquip(w.id); }
+        else if (k === 'ArrowLeft' || k === 'a' || k === 'A') game.keyAim = -1;
+        else if (k === 'ArrowRight' || k === 'd' || k === 'D') game.keyAim = 1;
+        return;
+      }
       if (k === ' ' || k === 'Spacebar') {
         e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
         if (e.repeat) return;
@@ -92,6 +122,7 @@ const UI = {
     });
     addEventListener('keyup', e => {
       const k = e.key;
+      if (game.kind === 'shoot' && (k === ' ' || k === 'Spacebar')) game.shHold(false);
       if (k === ' ' || k === 'e' || k === 'E') game.assistHeld = false;
       if (['ArrowLeft', 'a', 'A', 'ArrowRight', 'd', 'D'].includes(k)) game.keyAim = 0;
     });
@@ -99,7 +130,7 @@ const UI = {
 
     game.cb.onFrame = dt => this.frame(dt);
     game.cb.onStart = L => this.onStart(L);
-    game.cb.onGo = () => { this.say('Bắt đầu!', 'go', 900); if (game.level.id === 1) this.hintText('Di chuột để ngắm vào cổ bò, bấm chuột hoặc Space để quăng dây. Quăng đón đầu vì bò chạy liên tục.', 7000); };
+    game.cb.onGo = () => { this.say('Bắt đầu!', 'go', 900); if (game.kind === 'shoot') this.hintText(game.level.hint, 6500); else if (game.level.id === 1) this.hintText('Di chuột để ngắm vào cổ bò, bấm chuột hoặc Space để quăng dây. Quăng đón đầu vì bò chạy liên tục.', 7000); };
     game.cb.onHook = () => this.hintText('', 0);
     game.cb.onCatch = (cow) => { if (cow.def.rare) this.say(cow.def.name + '!', 'rare', 1500); };
     game.cb.onRare = def => this.say(def.name + ' xuất hiện!', 'rare', 1700);
@@ -109,7 +140,8 @@ const UI = {
     game.cb.onEnd = res => {
       this.el.hPull.classList.remove('on');
       res.player = Save.data.player || 'Ẩn danh';
-      this.pending = Board.submit({ name: res.player, score: Math.round(res.score), level: res.level.id, win: res.win });
+      res.mode = res.mode || 'catch';
+      this.pending = Board.submit({ name: res.player, score: Math.round(res.score), level: res.level.id, win: res.win, mode: res.mode });
       clearTimeout(this.resultT);
       this.resultT = setTimeout(() => { if (game.mode === 'end') { this.el.hud.classList.add('off'); this.show('result', res); } }, res.win ? 1300 : 900);
     };
@@ -145,24 +177,27 @@ const UI = {
   back() {
     if (game.mode === 'play' && !game.paused) return this.pause();
     if (game.paused && this.cur === 'pause') return this.resume();
-    if (['levels', 'shop', 'coll', 'achv', 'settings', 'board', 'name'].includes(this.cur)) this.show('menu');
+    if (['levels', 'shop', 'coll', 'achv', 'settings', 'board', 'name', 'slevels', 'arsenal', 'scoll', 'sachv'].includes(this.cur)) this.show('menu');
   },
 
   act(a, d) {
     Sound.play('ui');
     switch (a) {
       case 'menu': this.toMenu(); break;
-      case 'levels': this.show(Save.data.player ? 'levels' : 'name'); break;
+      case 'levels': this.show(Save.data.player ? (Save.data.mode === 'shoot' ? 'slevels' : 'levels') : 'name'); break;
+      case 'mode': this.setMode(d.val); break;
+      case 'wep': game.shEquip(d.id); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); break;
+      case 'wbuy': case 'wup': case 'wequip': this.weaponAct(a, d.id); break;
       case 'rename': this.show('name'); break;
       case 'board': this.show('board'); break;
       case 'savename': {
         const inp = document.getElementById('nameIn'), n = Board.cleanName(inp && inp.value);
         if (!n) { this.toast('<b>Hãy nhập tên của bạn</b><span>Tên sẽ hiện trên bảng thành tích.</span>', 'warn'); if (inp) inp.focus(); break; }
-        Save.data.player = n; Save.commit(); this.show('levels'); break;
+        Save.data.player = n; Save.commit(); this.show(Save.data.mode === 'shoot' ? 'slevels' : 'levels'); break;
       }
-      case 'shop': this.show('shop'); break;
-      case 'coll': this.show('coll'); break;
-      case 'achv': this.show('achv'); break;
+      case 'shop': this.show(Save.data.mode === 'shoot' ? 'arsenal' : 'shop'); break;
+      case 'coll': this.show(Save.data.mode === 'shoot' ? 'scoll' : 'coll'); break;
+      case 'achv': this.show(Save.data.mode === 'shoot' ? 'sachv' : 'achv'); break;
       case 'settings': this.show('settings'); break;
       case 'play': this.startLevel(+d.level); break;
       case 'pause': this.pause(); break;
@@ -190,7 +225,9 @@ const UI = {
     this.hideScreen();
     this.el.hud.classList.remove('off');
     this.el.hud.classList.remove('hasPull');
-    this.dispScore = 0; this.dispGold = Save.data.gold;
+    this.el.hud.classList.toggle('shoot', Save.data.mode === 'shoot');
+    if (Save.data.mode === 'shoot') this.buildWeaponBar();
+    this.dispScore = 0; this.dispGold = cur().gold;
     this.el.hint.classList.remove('show');
     Sound.init();
     game.start(n);
@@ -202,7 +239,7 @@ const UI = {
   },
   pause() {
     if (game.mode !== 'play' && game.mode !== 'intro') return;
-    game.setPaused(true); game.assistHeld = false;
+    game.setPaused(true); game.assistHeld = false; if (game.kind === 'shoot') game.shHold(false);
     this.show('pause');
   },
   resume() { this.hideScreen(); game.setPaused(false); },
@@ -213,6 +250,16 @@ const UI = {
     if (game.mode !== 'demo') game.startDemo();
     Sound.duck(false);
     this.show('menu');
+  },
+  weaponAct(a, id) {
+    const w = WEAPON[id], res = a === 'wbuy' ? Arsenal.buy(id) : a === 'wup' ? Arsenal.up(id) : (Arsenal.equip(id) ? 'EQUIP' : 'UNKNOWN');
+    if (res === 'OK') {
+      Sound.play('buy'); this.flash = [id, 'ok'];
+      this.toast(a === 'wbuy' ? `<b>Đã mở khoá</b><span>${esc(w.name)}, đã trang bị</span>` : `<b>Đã nâng cấp</b><span>${esc(w.name)}, cấp ${Arsenal.lvl(id)}</span>`);
+    } else if (res === 'EQUIP') { this.toast(`<b>Đã trang bị</b><span>${esc(w.name)}</span>`); }
+    else if (res === 'NOT_ENOUGH_GOLD') { Sound.play('deny'); this.flash = [id, 'deny']; this.toast('<b>Không đủ vàng</b><span>Hạ thêm bò để có vàng nhé.</span>', 'warn'); }
+    else if (res === 'MAX') { Sound.play('deny'); this.toast('<b>Đã đạt cấp tối đa</b>', 'warn'); }
+    this.refresh();
   },
   buy(id) {
     const res = Shop.buy(id), it = ITEM[id];
@@ -231,7 +278,7 @@ const UI = {
 
   /* ---------- HUD ---------- */
   frame(dt) {
-    const E = this.el, g = game, d = Save.data;
+    const E = this.el, g = game, d = cur();
     if (g.mode === 'play' || g.mode === 'intro' || g.mode === 'end') {
       this.dispScore += (g.score - this.dispScore) * Math.min(1, dt * 9);
       if (Math.abs(g.score - this.dispScore) < .5) this.dispScore = g.score;
@@ -245,13 +292,17 @@ const UI = {
     if (Math.abs(d.gold - this.dispGold) < .5) this.dispGold = d.gold;
     this.set('hGold', fmt(this.dispGold));
     const mg = document.getElementById('mGold'); if (mg) mg.textContent = fmt(d.gold);
+    if (g.kind === 'shoot' && this.last.wep !== g.wep) {
+      this.last.wep = g.wep;
+      E.hWeapons.querySelectorAll('.wslot').forEach(b => b.classList.toggle('on', b.dataset.id === g.wep));
+    }
 
     const p = g.pull, inPlay = g.mode === 'play';
     E.hPull.classList.toggle('on', !!p && inPlay);
     E.btnPull.classList.toggle('on', !!p && inPlay);
     E.btnThrow.classList.toggle('off', !!p || !inPlay || g.timeLeft <= 0);
     E.btnThrow.classList.toggle('cool', g.rope.state !== 'idle' || g.rope.cool > 0);
-    const pots = d.consumables.energy_potion || 0;
+    const pots = Save.data.consumables.energy_potion || 0;
     this.set('potCount', pots);
     E.btnPotion.classList.toggle('on', !!p && inPlay && pots > 0);
     E.btnPotion.classList.toggle('surge', !!p && p.surge > 0);
@@ -308,9 +359,9 @@ const UI = {
     const ui = this.el.ui;
     ui.className = 'ui s-' + name + ' in';
     ui.innerHTML = SCREENS[name](arg, this);
-    if (name === 'coll') this.animCollection();
-    if (name === 'result') { this.animResult(arg); this.fillBoard('rBoard', this.pending, 7, arg.player); }
-    if (name === 'board') this.fillBoard('bBoard', Board.list(), 50, Save.data.player);
+    if (name === 'coll' || name === 'scoll') this.animCollection();
+    if (name === 'result') { this.animResult(arg); this.fillBoard('rBoard', this.pending, 6, arg.player); }
+    if (name === 'board') this.fillBoard('bBoard', Board.list(Save.data.mode), 50, Save.data.player);
     const f = ui.querySelector('[data-focus]') || ui.querySelector('button'); if (f) f.focus({ preventScroll: true });
   },
   refresh() {
@@ -320,7 +371,7 @@ const UI = {
     this.el.ui.classList.remove('in');
     this.el.ui.innerHTML = SCREENS[this.cur](this.arg, this);
     const l2 = this.el.ui.querySelector('.scroll'); if (l2) l2.scrollTop = top;
-    if (this.cur === 'coll') this.animCollection();
+    if (this.cur === 'coll' || this.cur === 'scoll') this.animCollection();
     if (act && act.act) {
       const sel = '[data-act="' + act.act + '"]' + (act.id ? '[data-id="' + act.id + '"]' : '') + (act.key ? '[data-key="' + act.key + '"]' : '') + (act.val ? '[data-val="' + act.val + '"]' : '');
       const n = this.el.ui.querySelector(sel); if (n) n.focus({ preventScroll: true });
@@ -368,12 +419,17 @@ const UI = {
 
 const SCREENS = {
   menu() {
-    const d = Save.data;
-    return `
-    <div class="chip gold abs-tr"><i class="coin"></i><b id="mGold">${fmt(d.gold)}</b></div>
-    <div class="menu-col">
-      <div class="logo">
-        <svg class="ring" viewBox="0 0 640 300" aria-hidden="true">
+    const d = cur(), shoot = Save.data.mode === 'shoot';
+    const ring = shoot
+      ? `<svg class="ring" viewBox="0 0 640 300" aria-hidden="true">
+          <g class="ring-g">
+            <ellipse cx="320" cy="150" rx="296" ry="118" fill="none" stroke="#3a140c" stroke-width="15"/>
+            <ellipse cx="320" cy="150" rx="296" ry="118" fill="none" stroke="#FF7A3D" stroke-width="10"/>
+            <ellipse cx="320" cy="150" rx="296" ry="118" fill="none" stroke="#FFD3B0" stroke-width="3" stroke-dasharray="3 12"/>
+            <path d="M320 8v54M320 238v54M10 150h58M572 150h58" stroke="#3a140c" stroke-width="15" stroke-linecap="round"/>
+            <path d="M320 8v54M320 238v54M10 150h58M572 150h58" stroke="#FF7A3D" stroke-width="9" stroke-linecap="round"/>
+          </g></svg>`
+      : `<svg class="ring" viewBox="0 0 640 300" aria-hidden="true">
           <g class="ring-g" transform="rotate(-4 320 150)">
             <ellipse cx="320" cy="150" rx="296" ry="118" fill="none" stroke="#6a3f14" stroke-width="15"/>
             <ellipse cx="320" cy="150" rx="296" ry="118" fill="none" stroke="#E6A23C" stroke-width="10"/>
@@ -381,20 +437,101 @@ const SCREENS = {
           </g>
           <g stroke-linecap="round" fill="none"><path d="M560 224c14 12 10 34 26 40" stroke="#6a3f14" stroke-width="11"/><path d="M560 224c14 12 10 34 26 40" stroke="#E6A23C" stroke-width="7"/></g>
           <circle cx="556" cy="222" r="15" fill="#E6A23C" stroke="#6a3f14" stroke-width="5"/>
-        </svg>
-        <h1><span class="w1">BẮT</span><span class="w2">BÒ</span></h1>
+        </svg>`;
+    return `
+    <div class="chip gold abs-tr"><i class="coin"></i><b id="mGold">${fmt(d.gold)}</b></div>
+    <div class="menu-col">
+      <div class="logo ${shoot ? 'shoot' : ''}">
+        ${ring}
+        <h1><span class="w1">${shoot ? 'BẮN' : 'BẮT'}</span><span class="w2">BÒ</span></h1>
       </div>
       <nav class="panel menu-panel" aria-label="Menu chính">
-        <button class="btn big" data-act="levels" data-focus>Chơi</button>
-        <div class="row2">
-          <button class="btn leaf" data-act="shop">Cửa hàng</button>
-          <button class="btn leaf" data-act="coll">Bộ sưu tập bò</button>
+        <div class="modes" role="tablist" aria-label="Kiểu chơi">
+          <button class="mode-tab ${shoot ? '' : 'on'}" role="tab" aria-selected="${!shoot}" data-act="mode" data-val="catch"><b>Bắt bò</b><span>Quăng dây, kéo về</span></button>
+          <button class="mode-tab shoot ${shoot ? 'on' : ''}" role="tab" aria-selected="${shoot}" data-act="mode" data-val="shoot"><b>Bắn bò</b><span>Chọn súng, hạ cả đàn</span></button>
+        </div>
+        <button class="btn big" data-act="levels" data-focus>Chơi ${shoot ? 'bắn bò' : 'bắt bò'}</button>
+        <div class="mgrid">
+          <button class="btn leaf" data-act="shop">${shoot ? 'Kho súng' : 'Cửa hàng'}</button>
+          <button class="btn leaf" data-act="coll">Bộ sưu tập</button>
           <button class="btn leaf" data-act="achv">Thành tích</button>
-          <button class="btn leaf" data-act="settings">Cài đặt</button>
-          <button class="btn leaf wide2" data-act="board">Bảng xếp hạng</button>
+          <button class="btn leaf half" data-act="board">Xếp hạng</button>
+          <button class="btn leaf half" data-act="settings">Cài đặt</button>
         </div>
       </nav>
     </div>`;
+  },
+
+  slevels() {
+    const d = Save.data.shoot, un = d.unlockedLevel, w = WEAPON[d.equipped] || WEAPON.pistol;
+    const cards = SLEVELS.map((L, i) => {
+      const n = i + 1, locked = n > un, best = d.bestByLevel[n];
+      return `<button class="lvl ${locked ? 'locked' : ''} ${n === un ? 'current' : ''}" ${locked ? 'disabled' : `data-act="play" data-level="${n}"`} ${n === Math.min(un, SLEVELS.length) ? 'data-focus' : ''}>
+        <span class="n">${n}</span>
+        <span class="t"><b>${esc(L.name)}</b><em>Đạt ${fmt(L.target)} điểm trong ${L.time} giây</em></span>
+        <span class="b">${locked ? 'Chưa mở khoá' : best ? 'Cao nhất ' + fmt(best) : n === un ? 'Chơi tiếp' : 'Chưa chơi'}</span>
+      </button>`;
+    }).join('');
+    const eLevel = Math.max(SLEVELS.length + 1, un), eLocked = un <= SLEVELS.length, eBest = d.bestByLevel[eLevel];
+    const endless = `<button class="lvl wide ${eLocked ? 'locked' : 'current'}" ${eLocked ? 'disabled' : `data-act="play" data-level="${eLevel}"`}>
+      <span class="n inf">∞</span>
+      <span class="t"><b>Bắn vô tận</b><em>${eLocked ? 'Qua màn ' + SLEVELS.length + ' để mở' : `Đang ở màn ${eLevel}. Bò ngày càng trâu`}</em></span>
+      <span class="b">${eBest ? 'Cao nhất ' + fmt(eBest) : ''}</span></button>`;
+    return `<div class="panel wide-panel">
+      ${head('Chọn màn bắn', `<button class="btn ghost sm cur-wep" data-act="shop" aria-label="Mở kho súng">${wicon(w.id)}<span>${esc(w.name)} · Kho súng</span></button><button class="btn ghost sm" data-act="rename" aria-label="Đổi tên người chơi">Người chơi: <b>${esc(Save.data.player)}</b> ✎</button>`)}
+      <div class="lvl-grid scroll">${cards}${endless}</div></div>`;
+  },
+
+  arsenal() {
+    const d = Save.data.shoot, f = UI.flash;
+    const cards = WEAPONS.map(w => {
+      const l = Arsenal.lvl(w.id), own = l > 0, eq = d.equipped === w.id, mult = Arsenal.mult(w.id);
+      const dps = Math.round((w.dps || w.dmg * w.rate) * Math.max(1, mult) * (w.kind === 'boomerang' ? 2 : 1));
+      const pips = `<span class="pips" aria-label="Cấp ${l} trên ${Arsenal.MAX}">${Array.from({ length: Arsenal.MAX }, (_, i) => `<i class="${i < l ? 'on' : ''}"></i>`).join('')}</span>`;
+      let acts;
+      if (!own) acts = `<button class="btn buy ${d.gold >= w.price ? '' : 'poor'}" data-act="wbuy" data-id="${w.id}"><span>Mở khoá</span><span class="price"><i class="coin"></i>${fmt(w.price)}</span></button>`;
+      else {
+        const up = Arsenal.upPrice(w), max = l >= Arsenal.MAX;
+        acts = `<button class="btn buy ${max || d.gold >= up ? '' : 'poor'}" data-act="wup" data-id="${w.id}" ${max ? 'disabled' : ''}><span>${max ? 'Tối đa' : 'Nâng cấp'}</span>${max ? '' : `<span class="price"><i class="coin"></i>${fmt(up)}</span>`}</button>
+          <button class="btn ${eq ? 'ghost' : 'leaf'} buy" data-act="wequip" data-id="${w.id}" ${eq ? 'disabled' : ''}><span>${eq ? 'Đang cầm' : 'Trang bị'}</span></button>`;
+      }
+      return `<article class="item weapon ${eq ? 'eq' : ''} ${f && f[0] === w.id ? f[1] : ''}">
+        <div class="ico-wrap">${wicon(w.id)}</div>
+        <div class="info"><h3>${esc(w.name)}</h3><p>${esc(w.desc)}</p>
+          <span class="eff"><b>${fmt(dps)}</b> <em>sát thương mỗi giây</em></span>
+          <span class="tagrow">${w.tags.map(t => `<i>${esc(t)}</i>`).join('')}</span>${own ? pips : ''}</div>
+        <div class="wact">${acts}</div>
+      </article>`;
+    }).join('');
+    return `<div class="panel wide-panel shop">
+      ${head('Kho súng', `<div class="chip gold"><i class="coin"></i><b>${fmt(d.gold)}</b><span class="sr">vàng</span></div>`)}
+      <div class="scroll item-grid">${cards}</div></div>`;
+  },
+
+  scoll() {
+    const d = Save.data.shoot;
+    const cards = SHOOT_ORDER.map(id => {
+      const c = COWS[id], n = d.stats.killed[id] || 0, seen = n > 0;
+      return `<article class="cow-card ${seen ? '' : 'unseen'}">
+        <canvas width="390" height="225" data-type="${id}" role="img" aria-label="${seen ? esc(c.name) : 'Bò chưa gặp'}"></canvas>
+        <h3>${seen ? esc(c.name) : 'Chưa hạ được'}</h3>
+        <p>${seen ? esc(c.desc) : 'Hạ một con để mở thẻ này.'}</p>
+        <div class="tags">${seen ? `<span>${c.score} điểm</span><span>${c.gold} vàng</span><span>Máu ${c.hp}</span><span>Đã hạ ${n}</span>` : ''}</div>
+      </article>`;
+    }).join('');
+    return `<div class="panel wide-panel">${head('Bò trên đồng', `<span class="count">${SHOOT_ORDER.filter(i => d.stats.killed[i]).length} / ${SHOOT_ORDER.length} loại</span>`)}
+      <div class="scroll cow-grid">${cards}</div></div>`;
+  },
+
+  sachv() {
+    const d = Save.data.shoot, got = SACHV.filter(a => d.achievements[a.id]).length;
+    const rows = SACHV.map(a => {
+      const ok = !!d.achievements[a.id];
+      return `<li class="${ok ? 'ok' : ''}"><span class="tick">${ok ? '✓' : ''}</span><div><b>${esc(a.name)}</b><p>${esc(a.desc)}</p></div></li>`;
+    }).join('');
+    const kills = Object.values(d.stats.killed).reduce((x, y) => x + y, 0);
+    return `<div class="panel mid-panel">${head('Thành tích bắn bò', `<span class="count">${got} / ${SACHV.length}</span>`)}<ul class="achv scroll">${rows}</ul>
+      <div class="stats"><span>Đã bắn <b>${fmt(d.stats.shots)}</b> phát</span><span>Trúng <b>${fmt(d.stats.hits)}</b></span><span>Đã hạ <b>${fmt(kills)}</b> bò</span><span>Điểm cao nhất <b>${fmt(d.bestScore)}</b></span></div></div>`;
   },
 
   name() {
@@ -407,7 +544,7 @@ const SCREENS = {
   },
 
   board() {
-    return `<div class="panel mid-panel">${head('Xếp hạng', `<span class="count">Điểm cao nhất mỗi người</span>`)}
+    return `<div class="panel mid-panel">${head('Xếp hạng', `<span class="count">${Save.data.mode === 'shoot' ? 'Bắn bò' : 'Bắt bò'}</span>`)}
       <div class="scroll board" id="bBoard"><p class="none">Đang tải…</p></div></div>`;
   },
 
@@ -489,11 +626,11 @@ const SCREENS = {
       ${sw('sfx', 'Hiệu ứng âm thanh', 'Tiếng dây, bò và vàng.')}
       ${sw('assist', 'Chế độ giữ phím', 'Giữ E, Space hoặc nút KÉO để tự kéo, với lực nhẹ hơn.')}
       <div class="set-row"><div><b>Độ khó</b><p>Thay đổi số lần nhấn cần để kéo bò.</p></div><div class="segs">${dif}</div></div>
-      <div class="skin-head"><b>Hình bò của bạn</b><p>Chọn ảnh của riêng bạn thay cho từng loại bò. Có thể chọn riêng ảnh lúc bình thường và ảnh lúc bị bắt dây. Ảnh PNG nền trong suốt đẹp nhất, ảnh có nền thì bật cắt oval. Mở game bằng start-game.bat thì ảnh được lưu thẳng vào thư mục assets/cows. Bạn cũng có thể tự bỏ ảnh vào thư mục đó, xem README trong thư mục.</p></div>
+      ${ADMIN ? `      <div class="skin-head"><b>Hình bò của bạn</b><p>Chọn ảnh của riêng bạn thay cho từng loại bò. Có thể chọn riêng ảnh lúc bình thường và ảnh lúc bị bắt dây. Ảnh PNG nền trong suốt đẹp nhất, ảnh có nền thì bật cắt oval. Mở game bằng start-game.bat thì ảnh được lưu thẳng vào thư mục assets/cows. Bạn cũng có thể tự bỏ ảnh vào thư mục đó, xem README trong thư mục.</p></div>
       ${COW_ORDER.map(id => { const sa = Skins.src(id, 'src'), sh = Skins.src(id, 'hooked'), th = (src, lbl) => `<div class="skin-thumb">${src ? `<img src="${src}" alt="">` : `<span>${lbl}</span>`}</div>`; return `<div class="skin-row"><b>${esc(COWS[id].name)}</b>
         <div class="skin-pair"><div>${th(sa, 'Hình gốc')}<label class="btn ghost sm">Ảnh bình thường<input class="sr" type="file" accept="image/*" data-skin="${id}" data-kind="src"></label></div>
         <div>${th(sh || sa, 'Hình gốc')}<label class="btn ghost sm">Ảnh khi bị bắt<input class="sr" type="file" accept="image/*" data-skin="${id}" data-kind="hooked"></label></div></div>
-        <div class="skin-actions">${sa || sh ? `<button class="btn ghost sm" data-act="skinflip" data-id="${id}">${Skins.flip(id) ? 'Lật ảnh: đang lật' : 'Lật ảnh: không'}</button><button class="btn ghost sm" data-act="skinoval" data-id="${id}">${Skins.oval(id) ? 'Cắt oval: bật' : 'Cắt oval: tắt'}</button><button class="btn ghost sm" data-act="skinclear" data-id="${id}">Dùng hình gốc</button>` : ''}</div></div>`; }).join('')}
+        <div class="skin-actions">${sa || sh ? `<button class="btn ghost sm" data-act="skinflip" data-id="${id}">${Skins.flip(id) ? 'Lật ảnh: đang lật' : 'Lật ảnh: không'}</button><button class="btn ghost sm" data-act="skinoval" data-id="${id}">${Skins.oval(id) ? 'Cắt oval: bật' : 'Cắt oval: tắt'}</button><button class="btn ghost sm" data-act="skinclear" data-id="${id}">Dùng hình gốc</button>` : ''}</div></div>`; }).join('')}` : ''}
       <div class="set-row"><div><b>Dữ liệu đã lưu</b><p>Vàng, vật phẩm và màn đã mở nằm trong trình duyệt này.</p></div>
         <button class="btn ${ui.confirmReset ? 'danger' : 'ghost'}" data-act="reset">${ui.confirmReset ? 'Bấm lần nữa để xoá' : 'Xoá dữ liệu'}</button></div>
       </div></div>`;
@@ -514,26 +651,28 @@ const SCREENS = {
   },
 
   result(r) {
-    const caught = COW_ORDER.filter(id => r.caught[id]).map(id => `<li><b>${r.caught[id]}</b> ${esc(COWS[id].name)}</li>`).join('') || '<li class="none">Chưa bắt được con nào</li>';
+    const sh = r.mode === 'shoot';
+    const caught = (sh ? SHOOT_ORDER : COW_ORDER).filter(id => r.caught[id]).map(id => `<li><b>${r.caught[id]}</b> ${esc(COWS[id].name)}</li>`).join('') || `<li class="none">${sh ? 'Chưa hạ được con nào' : 'Chưa bắt được con nào'}</li>`;
+    const facts = sh
+      ? `<div><dt>Số phát bắn</dt><dd>${fmt(r.shots)}</dd></div><div><dt>Trúng đích</dt><dd>${r.shots ? Math.round(r.hits / r.shots * 100) : 0}%</dd></div><div><dt>Chuỗi cao nhất</dt><dd>${r.bestCombo}</dd></div><div><dt>Vàng từ bò</dt><dd>${fmt(r.gold)}</dd></div>`
+      : `<div><dt>Quăng trượt</dt><dd>${r.missed}</dd></div><div><dt>Bò thoát</dt><dd>${r.escaped}</dd></div><div><dt>Vàng từ bò</dt><dd>${fmt(r.gold)}</dd></div>`;
     const total = r.gold + r.bonus + r.timeBonus;
     return `<div class="panel result ${r.win ? 'win' : 'lose'}">
       <h2>${r.win ? 'Vượt màn!' : 'Chưa đạt mục tiêu'}</h2>
-      <p class="sub">${esc(r.player)} · ${esc(r.level.endless ? r.level.name : 'Màn ' + r.level.id + ': ' + r.level.name)}</p>
+      <p class="sub">${sh ? 'Bắn bò · ' : ''}${esc(r.player)} · ${esc(r.level.endless ? r.level.name : 'Màn ' + r.level.id + ': ' + r.level.name)}</p>
       <div class="score-big"><b id="rScore">0</b><span>/ ${fmt(r.target)} điểm</span>${r.isBest ? '<em>Kỷ lục mới</em>' : ''}</div>
       <div class="res-cols">
         <ul class="caught">${caught}</ul>
         <div class="board small"><h3>Bảng xếp hạng</h3><div id="rBoard"><p class="none">Đang tải…</p></div></div>
         <dl class="facts">
-          <div><dt>Quăng trượt</dt><dd>${r.missed}</dd></div>
-          <div><dt>Bò thoát</dt><dd>${r.escaped}</dd></div>
-          <div><dt>Vàng từ bò</dt><dd>${fmt(r.gold)}</dd></div>
+          ${facts}
           ${r.win ? `<div><dt>Thưởng qua màn</dt><dd>${fmt(r.bonus)}</dd></div><div><dt>Thưởng thời gian</dt><dd>${fmt(r.timeBonus)}</dd></div>` : ''}
           <div class="tot"><dt>Tổng vàng nhận</dt><dd id="rGold">+0</dd></div>
         </dl>
       </div>
       <div class="actions">
         ${r.win ? '<button class="btn big" data-act="next" data-focus>Màn tiếp theo</button><button class="btn leaf" data-act="restart">Chơi lại</button>' : '<button class="btn big" data-act="restart" data-focus>Chơi lại</button>'}
-        <button class="btn leaf" data-act="shop">Cửa hàng</button>
+        <button class="btn leaf" data-act="shop">${sh ? 'Kho súng' : 'Cửa hàng'}</button>
         <button class="btn ghost" data-act="menu">Màn hình chính</button>
       </div>
     </div>`;

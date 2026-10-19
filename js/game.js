@@ -292,6 +292,8 @@ function drawCow(c, o) {
     }
   }
 
+  // bò mới của Bắn Bò: cưỡi phương tiện hoặc mặc đồ, vẽ riêng
+  if (COWS[o.type] && COWS[o.type].rider) { drawRider(c, o); c.restore(); return; }
   // bò chibi cử động bằng xương ảo (nếu có đủ ảnh bộ phận và người chơi chưa chọn ảnh riêng)
   const rigAtlas = typeof RIG !== 'undefined' && RIG[o.type] ? Skins.rig(o.type, upset) : null;
   if (rigAtlas) { drawRig(c, o, rigAtlas, upset); c.restore(); return; }
@@ -434,8 +436,8 @@ class Cow {
   get s() { return laneScale(this.y) * this.def.size * .92; }
   /* độ cao khi bay: thấp xuống khi bị dây móc, lên xuống nhẹ theo nhịp */
   lift() { const f = this.def.fly; if (!f) return 0; return f * this.s * (1 + .16 * Math.sin(this.fp || 0)) * (this.state === 'walk' ? 1 : .45); }
-  center() { return { x: this.x, y: this.y - 62 * this.s - this.lift() }; }
-  radius() { return 46 * this.s; }
+  center() { return { x: this.x, y: this.y - (this.def.cy || 62) * this.s - this.lift() }; }
+  radius() { return (this.def.hr || 46) * this.s; }
   hasSkin() { return !!Skins.get(this.type, this.state === 'hooked'); }
   /* điểm vòng dây siết vào: với ảnh tự chọn là phần cổ, giữa thân ảnh phía trên */
   neck() { return this.hasSkin() ? { x: this.x, y: this.y - (this.def.skinK ? 98 : 80) * this.s - this.lift() } : { x: this.x + this.face * 52 * this.s, y: this.y - 86 * this.s - this.lift() }; }
@@ -446,7 +448,7 @@ Cow.n = 0;
 class Game {
   constructor(cv) {
     this.cv = cv; this.ctx = cv.getContext('2d');
-    this.cb = {}; this.t = 0; this.mode = 'idle'; this.paused = false;
+    this.cb = {}; this.t = 0; this.mode = 'idle'; this.paused = false; this.kind = 'catch'; this.proj = []; this.holding = false;
     this.aimTarget = -Math.PI / 2; this.aimAng = -Math.PI / 2; this.keyAim = 0;
     this.cows = []; this.parts = []; this.texts = []; this.shake = 0;
     this.rope = this.newRope(); this.pull = null; this.assistHeld = false;
@@ -470,6 +472,7 @@ class Game {
 
   /* --- vòng đời màn chơi --- */
   start(n) {
+    if (this.kind === 'shoot') return this.shStart(n);
     const d = Save.data;
     SHOULDER.x = 640;
     this.level = levelConfig(n); this.gear = computeGear(d.items);
@@ -481,7 +484,9 @@ class Game {
     Sound.play('start');
     this.cb.onStart && this.cb.onStart(this.level);
   }
+  setKind(k) { this.kind = k; this.startDemo(); }
   startDemo() {
+    if (this.kind === 'shoot') return this.shDemo();
     this.level = Object.assign(levelConfig(4), { maxCows: 6 });
     this.level.weights = { normal: 40, small: 20, big: 25, fast: 20, mad: 20, red: 10, gold: 8, rainbow: 6 };
     this.gear = computeGear({ long_rope: 2 });
@@ -516,6 +521,7 @@ class Game {
     const x = init ? rnd(120, W - 120) : (side < 0 ? -90 : W + 90);
     const c = new Cow(type, x, rnd(WANDER.y0, WANDER.y1), side < 0 ? 1 : -1, this.level.speed * rnd(.9, 1.1));
     c.tx = rnd(WANDER.x0, WANDER.x1); c.ty = rnd(WANDER.y0, WANDER.y1); c.wanderT = rnd(1, 3); c.vy = 0;
+    c.maxhp = c.hp = (def.hp || 50) * (this.level.hpMul || 1); c.hurt = 0; c.flash = 0;
     this.cows.push(c);
     if (!init && def.rare) this.cb.onRare && this.cb.onRare(def);
   }
@@ -536,10 +542,11 @@ class Game {
     if (r.state === 'hooked' && this.pull) return this.pull.cow.neck();
     const h = this.hand(r.ang); return { x: h.x + Math.cos(r.ang) * r.len, y: h.y + Math.sin(r.ang) * r.len };
   }
-  setAimPoint(x, y) { this.aimTarget = clamp(Math.atan2(y - SHOULDER.y, x - SHOULDER.x), -Math.PI + .1, -.1); }
+  setAimPoint(x, y) { this.aimX = x; this.aimY = y; this.aimTarget = clamp(Math.atan2(y - SHOULDER.y, x - SHOULDER.x), -Math.PI + .1, -.1); }
   canAct() { return (this.mode === 'play' || this.mode === 'demo') && !this.paused; }
 
   update(dt) {
+    if (this.kind === 'shoot') return this.shUpdate(dt);
     this.t += dt;
     if (this.mode === 'intro') { this.introT -= dt; if (this.introT <= 0) { this.mode = 'play'; this.cb.onGo && this.cb.onGo(); } }
     if (this.mode === 'play') {
@@ -790,7 +797,7 @@ class Game {
     }
     this.puff(cow.x, cow.y, 8, 'rgba(235,215,170,.8)', 120, .6, 9);
   }
-  streakBonus() { const s = this.streak; return s >= 5 ? .2 : s >= 3 ? .1 : s >= 2 ? .05 : 0; }
+  streakBonus() { const s = this.streak; if (this.kind === 'shoot') return s >= 2 ? Math.min(.5, (s - 1) * .05) : 0; return s >= 5 ? .2 : s >= 3 ? .1 : s >= 2 ? .05 : 0; }
 
   capture() {
     const p = this.pull, cow = p.cow, def = cow.def;
@@ -830,6 +837,7 @@ class Game {
   }
 
   end(win) {
+    if (this.kind === 'shoot') return this.shEnd(win);
     if (this.ended) return; this.ended = true; this.mode = 'end';
     const d = Save.data, L = this.level, ses = this.session;
     let bonus = 0, timeBonus = 0;
@@ -989,6 +997,10 @@ class Game {
       c.fillStyle = n; c.fillRect(0, 0, W, H);
       c.fillStyle = '#FFE9A8'; c.beginPath(); c.arc(1060, 120, 46, 0, TAU); c.fill();
     }
+    if (this.kind === 'shoot' && this.mode !== 'demo' && !(this.level && this.level.halloween)) {
+      const n = c.createLinearGradient(0, 0, 0, H); n.addColorStop(0, 'rgba(255,96,40,.22)'); n.addColorStop(.5, 'rgba(255,150,60,.1)'); n.addColorStop(1, 'rgba(120,30,20,.16)');
+      c.fillStyle = n; c.fillRect(0, 0, W, H);
+    }
     // mây trôi
     if (!this.paused) this.clouds.forEach(m => { m.x += m.v * 1 / 60; if (m.x > W + 160) m.x = -160; });
     this.clouds.forEach(m => {
@@ -1009,12 +1021,13 @@ class Game {
     for (const cow of list) {
       const sc = cow.s * (cow.scaleMul || 1);
       drawCow(c, {
-        type: cow.type, x: cow.x, y: cow.y, lift: cow.lift() * (cow.scaleMul || 1), s: sc, face: cow.face, walk: cow.walk, t: this.t, ph: cow.ph,
-        mood: cow.state === 'hooked' ? (this.pull && this.pull.st === 'on' ? 'yell' : 'annoy') : 'calm', squash: cow.squash, tilt: cow.tilt, act: cow.act, actT: cow.actT, alpha: cow.alpha != null ? cow.alpha : (cow.type === 'ghost' && cow.state === 'walk' ? .72 + .22 * Math.sin(this.t * 3 + cow.ph) : undefined), moving: Math.abs(cow.vx) > 8 || Math.abs(cow.vy || 0) > 8 || cow.state === 'hooked',
+        type: cow.type, x: cow.x, y: cow.y, lift: cow.lift() * (cow.scaleMul || 1) + (cow.koLift || 0), s: sc, flash: cow.flash, face: cow.face, walk: cow.walk, t: this.t, ph: cow.ph,
+        mood: this.kind === 'shoot' ? (cow.hurt > 0 || cow.state === 'ko' ? 'yell' : 'calm') : cow.state === 'hooked' ? (this.pull && this.pull.st === 'on' ? 'yell' : 'annoy') : 'calm', squash: cow.squash, tilt: cow.tilt, act: cow.act, actT: cow.actT, alpha: cow.alpha != null ? cow.alpha : (cow.type === 'ghost' && cow.state === 'walk' ? .72 + .22 * Math.sin(this.t * 3 + cow.ph) : undefined), moving: Math.abs(cow.vx) > 8 || Math.abs(cow.vy || 0) > 8 || cow.state === 'hooked',
         headDip: cow.headDip, headTilt: (cow.headTilt || 0) + (cow.state === 'hooked' && this.pull && this.pull.st === 'on' ? Math.sin(this.t * 45) * .14 : 0)
       });
     }
-    for (const cow of list) {
+    if (this.kind === 'shoot') this.shDrawBars(c, list);
+    else for (const cow of list) {
       if (cow.state === 'captured') continue;
       const s = cow.s, bx = cow.x + cow.face * 14 * s, by = cow.y - 150 * s - cow.lift();
       c.save(); c.textAlign = 'center'; c.lineJoin = 'round';
@@ -1026,6 +1039,7 @@ class Game {
     this.drawPlayer(c);
     this.drawRope(c);
     this.drawAim(c);
+    if (this.kind === 'shoot') this.shDrawProj(c);
     this.drawTufts(c, true);
     this.drawParts(c);
     c.restore();
@@ -1066,6 +1080,7 @@ class Game {
     c.strokeStyle = '#C2412F'; c.lineWidth = 6; c.beginPath(); c.moveTo(-24, -20); c.quadraticCurveTo(10, -34, 50, -34); c.stroke();
     c.fillStyle = '#F6B93B'; c.beginPath(); c.arc(-4, -26, 5, 0, TAU); c.fill();
     c.restore();
+    if (this.kind === 'shoot') { this.shDrawGunArm(c, shake); return; }
     // cuộn dây bên hông
     c.strokeStyle = '#7A4A1B'; c.lineWidth = 3; c.fillStyle = '#E6A23C';
     c.beginPath(); c.ellipse(px + 70, 690, 15, 12, 0, 0, TAU); c.fill(); c.stroke();
@@ -1104,7 +1119,7 @@ class Game {
   }
   drawRope(c) {
     const r = this.rope;
-    if (r.state === 'idle') return;
+    if (this.kind === 'shoot' || r.state === 'idle') return;
     const h = this.hand(r.ang);
     if (r.state === 'hooked' && this.pull) {
       const p = this.pull, n = p.cow.neck();
@@ -1121,6 +1136,7 @@ class Game {
     this.drawLoop(c, tip.x, tip.y, r.ang, this.gear.loopR * (r.state === 'retract' ? .85 : 1), r.state === 'retract' && r.fast);
   }
   drawAim(c) {
+    if (this.kind === 'shoot') return this.shDrawAim(c);
     const r = this.rope;
     if (this.mode !== 'play' || this.paused || r.state !== 'idle' || this.timeLeft <= 0) return;
     const h = this.hand(), a = this.aimAng, R = this.gear.range, ca = Math.cos(a), sa = Math.sin(a);
@@ -1148,6 +1164,13 @@ class Game {
         continue;
       }
       const a = clamp(p.life / p.max, 0, 1);
+      if (p.type === 'boom') {
+        const k = 1 - a, r = p.r * (.35 + .65 * Math.sqrt(k)), g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        g.addColorStop(0, `rgba(255,248,200,${a})`); g.addColorStop(.35, `rgba(255,170,50,${a * .95})`); g.addColorStop(.75, `rgba(220,60,20,${a * .7})`); g.addColorStop(1, 'rgba(90,30,20,0)');
+        c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, r, 0, TAU); c.fill();
+        c.strokeStyle = `rgba(255,240,200,${a * .8})`; c.lineWidth = 6 * a; c.beginPath(); c.arc(p.x, p.y, r * 1.02, 0, TAU); c.stroke();
+        continue;
+      }
       if (p.type === 'conf') {
         c.save(); c.translate(p.x, p.y); c.rotate(p.rot); c.globalAlpha = Math.min(1, a * 2);
         c.fillStyle = p.color; c.fillRect(-4, -2.5, 8, 5); c.restore();

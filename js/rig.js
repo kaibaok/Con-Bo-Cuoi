@@ -4,3 +4,4 @@ const RIG = {"small": {"hw": 40, "tail": [183, 300], "tailH": [183, 300]}, "big"
 /* Kiểu bò: mặc định là bò mặt hoạt hình quậy phá; thêm ?bo-style=1 vào link để dùng bò gương mặt cũ */
 const CLASSIC = new URLSearchParams(location.search).get('bo-style') === '1';
 if (!CLASSIC) RIG.normal = { hw: 40, tail: [183, 300], tailH: [183, 300] };
+const ADMIN = new URLSearchParams(location.search).get('admin') === '1';
