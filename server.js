@@ -10,7 +10,7 @@ const PORT = +process.env.PORT || 3000;
 const os = require('os');
 const TYPES = ['normal', 'small', 'big', 'fast', 'mad', 'red', 'gold', 'rainbow', 'witch', 'ghost'];
 const EXTS = ['png', 'webp', 'jpg', 'jpeg'];
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8', '.json': 'application/json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8', '.php': 'text/html; charset=utf-8', '.json': 'application/json' };
 
 fs.mkdirSync(DIR, { recursive: true });
 
@@ -41,13 +41,40 @@ function api(req, res, url) {
   });
 }
 
+/* Bảng thành tích chung: mọi người chơi trong mạng gửi điểm lên đây, lưu ở scores.json */
+const SCORES = path.join(ROOT, 'scores.json');
+let scores = [];
+try { scores = JSON.parse(fs.readFileSync(SCORES, 'utf8')); if (!Array.isArray(scores)) scores = []; } catch (_) { scores = []; }
+function board() {
+  const best = new Map();
+  scores.forEach(e => { const k = e.name.toLowerCase(); if (!best.has(k) || e.score > best.get(k).score) best.set(k, e); });
+  return [...best.values()].sort((a, b) => b.score - a.score || a.ts - b.ts).slice(0, 50);
+}
+function scoresApi(req, res) {
+  const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
+  if (req.method === 'GET') return send(200, board());
+  if (req.method !== 'POST') return send(405, {});
+  let size = 0; const chunks = [];
+  req.on('data', c => { size += c.length; if (size > 4096) { req.destroy(); } else chunks.push(c); });
+  req.on('end', () => {
+    let b; try { b = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch (_) { return send(400, {}); }
+    const name = String(b.name || '').replace(/[\x00-\x1f<>]/g, '').trim().slice(0, 16), score = Math.floor(+b.score), level = Math.floor(+b.level) || 1;
+    if (!name || !(score >= 0) || score > 1e6) return send(400, {});
+    scores.push({ name, score, level, win: !!b.win, ts: Date.now() });
+    if (scores.length > 1000) scores = scores.slice(-1000);
+    fs.writeFile(SCORES, JSON.stringify(scores), () => {});
+    send(200, board());
+  });
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/api/skin') return api(req, res, url);
+  if (url.pathname === '/api/scores.php') return scoresApi(req, res);
   let p = decodeURIComponent(url.pathname);
-  if (p === '/') p = '/index.html';
+  if (p === '/') p = fs.existsSync(path.join(ROOT, 'index.html')) ? '/index.html' : '/index.php';
   const file = path.normalize(path.join(ROOT, p));
-  if (!file.startsWith(ROOT) || path.basename(file) === 'server.js') { res.writeHead(403); return res.end(); }
+  if (!file.startsWith(ROOT) || ['server.js', 'scores.json'].includes(path.basename(file))) { res.writeHead(403); return res.end(); }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end('not found'); }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-cache' });

@@ -15,6 +15,7 @@ const COWS = {
   ghost: { id: 'ghost', frames: 4, name: 'Bò ma', score: 70, gold: 35, size: 1, speed: 95, escape: 9, hook: .74, presses: 30, struggle: .7, weight: 4, rare: 1, fly: 38, skinK: 1.23, halloween: 1, diff: 'Bay lơ lửng, chập chờn', desc: 'Trôi lơ lửng, lúc rõ lúc mờ. Bị bắt thì hóa xanh lục và giãy rất nhanh.' },
   rainbow: { id: 'rainbow', frames: 4, skinK: 1.23, name: 'Bò ngũ sắc', score: 150, gold: 75, size: 1, speed: 140, escape: 9, hook: .66, presses: 44, struggle: .85, weight: 3, rare: 1, diff: 'Cực hiếm', desc: 'Truyền thuyết đồng cỏ. Thấy là phải thử một lần.' }
 };
+if (!CLASSIC) COWS.normal.skinK = 1.23;
 const COW_ORDER = ['normal', 'small', 'big', 'fast', 'mad', 'red', 'gold', 'rainbow', 'witch', 'ghost'];
 
 const LEVELS = [
@@ -83,7 +84,7 @@ const ACHV = [
 ];
 
 const DEFAULT_SAVE = () => ({
-  version: 1, gold: 0, unlockedLevel: 1, bestScore: 0, bestByLevel: {},
+  version: 1, player: '', gold: 0, unlockedLevel: 1, bestScore: 0, bestByLevel: {},
   items: {}, consumables: { energy_potion: 0 },
   stats: { caught: {}, thrown: 0, missed: 0, escaped: 0, levelsWon: 0 },
   achievements: {},
@@ -113,6 +114,36 @@ const Save = {
   },
   commit() { try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); } catch (e) { /* chế độ riêng tư */ } },
   reset() { this.data = DEFAULT_SAVE(); this.commit(); }
+};
+
+/* Bảng thành tích chung: gửi lên máy chủ (mọi người chơi cùng thấy). Không có máy chủ thì lưu tạm trên máy này. */
+const Board = {
+  KEY: 'batbo.localboard',
+  cleanName(n) { return String(n || '').replace(/[\x00-\x1f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 16); },
+  best(runs) {
+    const m = new Map();
+    runs.forEach(e => { const k = e.name.toLowerCase(), o = m.get(k); if (!o || e.score > o.score) m.set(k, e); });
+    return [...m.values()].sort((a, b) => b.score - a.score || a.ts - b.ts).slice(0, 50);
+  },
+  localRuns() { try { const r = JSON.parse(localStorage.getItem(this.KEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e) { return []; } },
+  async list() {
+    try {
+      const r = await fetch('api/scores.php', { cache: 'no-store' });
+      if (!r.ok) throw new Error('x');
+      return { rows: await r.json(), shared: true };
+    } catch (e) { return { rows: this.best(this.localRuns()), shared: false }; }
+  },
+  async submit(e) {
+    try {
+      const r = await fetch('api/scores.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(e) });
+      if (!r.ok) throw new Error('x');
+      return { rows: await r.json(), shared: true };
+    } catch (err) {
+      const runs = this.localRuns(); runs.push(Object.assign({ ts: Date.now() }, e));
+      try { localStorage.setItem(this.KEY, JSON.stringify(runs.slice(-300))); } catch (e2) { /* chế độ riêng tư */ }
+      return { rows: this.best(runs), shared: false };
+    }
+  }
 };
 
 const Shop = {

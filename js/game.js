@@ -93,6 +93,134 @@ function rigPose(o, T, upset) {
   return p;
 }
 
+/* ---------- Mặt bò hoạt hình (kiểu mặc định): dễ thương, siêu quậy, khó chịu ----------
+   Vẽ đè lên khung mặt tròn của ảnh đầu, xoay theo đầu. Toạ độ tính từ tâm khung mặt, theo đơn vị ảnh rig. */
+const FACES = {
+  normal: { skin: '#FFF3E2', a: 60, b: 70, eye: 'derp', mouth: 'tongue', brow: 'raise', horn: 1 },
+  small: { skin: '#FFF0E6', a: 60, b: 70, eye: 'sparkle', mouth: 'buck', brow: 'soft' },
+  big: { skin: '#C99467', a: 50, eye: 'half', mouth: 'smirk', brow: 'flat' },
+  fast: { skin: '#FFFFFF', a: 50, eye: 'cross', mouth: 'grin', brow: 'raise', band: 1 },
+  mad: { skin: '#A98BD3', a: 50, eye: 'angry', mouth: 'fang', brow: 'angry' },
+  red: { skin: '#F07A68', a: 50, eye: 'angry', mouth: 'fang', brow: 'angry' },
+  gold: { skin: '#FFDF7A', a: 50, eye: 'half', mouth: 'smirk', brow: 'raise', gold: 1 },
+  rainbow: { skin: '#FFFFFF', a: 50, eye: 'wink', mouth: 'tongue', brow: 'soft', rainbow: 1 },
+  witch: { skin: '#E4D3F5', a: 50, eye: 'slant', mouth: 'cackle', brow: 'angry', hat: 1 },
+  ghost: { skin: '#EAF6FF', a: 50, eye: 'hollow', mouth: 'oh', brow: 'worry' }
+};
+function drawFace(c, o, upset, U, X, Y) {
+  const F = FACES[o.type] || FACES.normal, a = F.a, b = F.b || 65, t = o.t || 0, ph = o.ph || 0, yell = o.mood === 'yell';
+  const INK = '#2a1830', blink = !upset && (t + ph) % 3.6 < .13;
+  c.save(); c.translate(X(150), Y(152)); c.scale(U, U); c.lineCap = 'round'; c.lineJoin = 'round';
+  const ell = (x, y, rx, ry, fill, stroke, lw = 3, rot = 0) => {
+    c.beginPath(); c.ellipse(x, y, rx, ry, rot, 0, TAU);
+    if (fill) { c.fillStyle = fill; c.fill(); }
+    if (stroke) { c.strokeStyle = stroke; c.lineWidth = lw; c.stroke(); }
+  };
+  const line = (x1, y1, x2, y2, lw, col = INK) => { c.strokeStyle = col; c.lineWidth = lw; c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); };
+  if (F.horn) for (const s of [-1, 1]) {
+    c.beginPath(); c.moveTo(s * 30, -58); c.quadraticCurveTo(s * 44, -66, s * 46, -92); c.quadraticCurveTo(s * 28, -80, s * 18, -62); c.closePath();
+    c.fillStyle = '#FFF1CF'; c.fill(); c.strokeStyle = INK; c.lineWidth = 3; c.stroke();
+  }
+  ell(0, 0, a, b, F.skin, INK, 4);
+  // mõm hồng + lỗ mũi
+  ell(0, 33, a * .5, 17, '#F8B4AA', INK, 3);
+  const nw = upset ? 1.15 + (yell ? .25 : 0) : 1 + .12 * Math.sin(t * 6 + ph);
+  ell(-8, 30, 3 * nw, 4.2, '#8a3f46'); ell(8, 30, 3 * nw, 4.2, '#8a3f46');
+  // má hồng
+  ell(-a * .7, 12, 10, 6, 'rgba(255,80,110,.42)'); ell(a * .7, 12, 10, 6, 'rgba(255,80,110,.42)');
+  // mắt
+  const ex = a * .4, ey = -14, wob = k => Math.sin(t * 1.7 + ph + k) * 3.2, jit = Math.sin(t * 40) * 1.2;
+  const eyes = F.eye;
+  if (upset) {
+    const f = yell ? 1 : .6;
+    for (const s of [-1, 1]) {
+      const x = s * ex;
+      if (yell || eyes === 'angry') { // mắt nhắm tịt hình > <, nước mắt phun
+        c.strokeStyle = INK; c.lineWidth = 5; c.beginPath(); c.moveTo(x - s * 11, ey - 9); c.lineTo(x + s * 9, ey); c.lineTo(x - s * 11, ey + 9); c.stroke();
+        const d = (t * 2.4 + (s > 0 ? .5 : 0)) % 1; ell(x + s * (14 + d * 22), ey + 6 + d * 18, 3.6 * (1 - d * .5), 5 * (1 - d * .5), 'rgba(138,211,236,' + (1 - d) + ')');
+      } else { // mắt tròn xoe hoảng hốt, đồng tử tí xíu rung
+        ell(x, ey, 14, 15, '#fff', INK, 3); ell(x + jit, ey + Math.sin(t * 33) * 1.4, 3.6, 3.6, INK);
+      }
+    }
+    line(-ex - 12, ey - 31, -ex + 10, ey - 18 - 3 * f, 5); line(ex + 12, ey - 31, ex - 10, ey - 18 - 3 * f, 5);
+    // mồm la hét, lưỡi vẫy
+    const open = (yell ? 17 : 10) + Math.sin(t * (yell ? 30 : 16)) * 3;
+    ell(0, 52, 19, open, '#5a0f1f', INK, 3.5);
+    c.save(); c.beginPath(); c.ellipse(0, 52, 19, open, 0, 0, TAU); c.clip();
+    ell(Math.sin(t * 22) * 4, 52 + open * .75, 12, 9, '#F2788A');
+    c.fillStyle = '#fff'; c.fillRect(-12, 52 - open, 10, 7); c.fillRect(2, 52 - open, 10, 7); c.restore();
+    ell(0, 52, 19, open, null, INK, 3.5);
+    if (yell) { const d = (t * 2.6) % 1; ell(a * .95, -40 + d * 20, 4, 6.5, 'rgba(138,211,236,' + (1 - d * .6) + ')', INK, 2); }
+  } else {
+    // lông mày
+    const brow = (s, k, dy = 0) => line(s * (ex + 11), ey - 22 + dy + k, s * (ex - 11), ey - 22 + dy - k, 5);
+    if (F.brow === 'angry') { brow(-1, -8); brow(1, -8); }
+    else if (F.brow === 'raise') { brow(-1, 1, -2); brow(1, -3, -9 + Math.sin(t * 3 + ph) * 2); }
+    else if (F.brow === 'flat') { brow(-1, 0, 2); brow(1, 0, 2); }
+    else if (F.brow === 'worry') { brow(-1, 6); brow(1, 6); }
+    else { brow(-1, 2, -3); brow(1, 2, -3); }
+    for (const s of [-1, 1]) {
+      const x = s * ex, wk = s > 0 ? 1.7 : 0;
+      if (blink || (eyes === 'wink' && s > 0)) {
+        c.strokeStyle = INK; c.lineWidth = 4.5; c.beginPath();
+        if (eyes === 'wink') { c.moveTo(x - 11, ey + 3); c.quadraticCurveTo(x, ey - 10, x + 11, ey + 3); } else { c.moveTo(x - 11, ey); c.quadraticCurveTo(x, ey + 7, x + 11, ey); }
+        c.stroke(); continue;
+      }
+      if (eyes === 'sparkle') {
+        ell(x, ey, 16, 18, '#fff', INK, 3); ell(x + wob(wk) * .3, ey + 2, 11, 13, '#2b1b3a'); ell(x - 3, ey - 3, 4.6, 5, '#fff'); ell(x + 4, ey + 6, 2.4, 2.4, '#fff');
+      } else if (eyes === 'derp') {
+        ell(x, ey, 14, 15, '#fff', INK, 3); ell(x + wob(wk * 2), ey + wob(wk) * .8, 5.6, 5.6, INK); ell(x + wob(wk * 2) - 1.6, ey + wob(wk) * .8 - 2, 1.8, 1.8, '#fff');
+      } else if (eyes === 'cross') {
+        ell(x, ey, 14, 15, '#fff', INK, 3); ell(x - s * 6 + Math.sin(t * 9 + wk) * 1.2, ey + 2, 5.6, 5.6, INK);
+      } else if (eyes === 'angry') {
+        ell(x, ey, 14, 14, '#FFE3E0', INK, 3); ell(x + s * 2, ey + 2, 4.4, 4.4, '#1b0f0c');
+        c.strokeStyle = '#d02a22'; c.lineWidth = 1.4;
+        for (let i = 0; i < 4; i++) { const an = i * 1.5 + .4; c.beginPath(); c.moveTo(x + Math.cos(an) * 13, ey + Math.sin(an) * 13); c.lineTo(x + Math.cos(an) * 8, ey + Math.sin(an) * 8); c.stroke(); }
+      } else if (eyes === 'slant') {
+        ell(x, ey + 2, 14, 11, '#fff', INK, 3, s * .35); ell(x + wob(wk) * .3, ey + 3, 4.6, 6.4, '#2dc653');
+      } else if (eyes === 'hollow') {
+        ell(x, ey, 15, 17, '#fff', INK, 3); ell(x + wob(wk) * .4, ey + 2, 8, 10, '#14091f'); ell(x - 2, ey - 2, 2.6, 2.6, '#fff');
+      } else { // half: mắt lờ đờ khinh khỉnh, đảo mắt
+        ell(x, ey, 14, 15, '#fff', INK, 3); ell(x + Math.sin(t * 1.1 + ph) * 6, ey + 2, 5.4, 5.6, INK);
+        c.save(); c.beginPath(); c.ellipse(x, ey, 14, 15, 0, 0, TAU); c.clip(); c.fillStyle = F.skin; c.fillRect(x - 16, ey - 17, 32, 17); c.restore();
+        line(x - 14, ey - 1, x + 14, ey - 1, 4);
+      }
+    }
+    // miệng
+    const my = 46, m = F.mouth;
+    if (m === 'cackle') {
+      const op = 10 + Math.abs(Math.sin(t * 6 + ph)) * 5; ell(0, my + 6, 20, op, '#4a0f35', INK, 3.4);
+      c.save(); c.beginPath(); c.ellipse(0, my + 6, 20, op, 0, 0, TAU); c.clip(); c.fillStyle = '#fff'; c.fillRect(-14, my + 6 - op, 28, 7); ell(0, my + 6 + op * .8, 11, 7, '#F2788A'); c.restore();
+    } else if (m === 'oh') {
+      ell(0, my + 8, 11, 11 + Math.sin(t * 3 + ph) * 3, '#14091f', INK, 3);
+    } else {
+      c.strokeStyle = INK; c.lineWidth = 3.6; c.beginPath();
+      if (m === 'smirk') { c.moveTo(-14, my + 2); c.quadraticCurveTo(2, my + 6, 16, my - 6); }
+      else if (m === 'grin' || m === 'fang') { c.moveTo(-20, my - 2); c.quadraticCurveTo(0, my + 20, 20, my - 2); c.closePath(); c.fillStyle = '#6e1220'; c.fill(); }
+      else { c.moveTo(-14, my); c.quadraticCurveTo(0, my + 9, 14, my); }
+      c.stroke();
+      if (m === 'grin') { c.save(); c.clip(); c.fillStyle = '#fff'; c.fillRect(-20, my - 3, 40, 8); c.restore(); }
+      if (m === 'fang') { c.fillStyle = '#fff'; c.lineWidth = 2.4; for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 13 - 4, my - 1); c.lineTo(s * 13 + 4, my - 1); c.lineTo(s * 13, my + 11); c.closePath(); c.fill(); c.stroke(); } }
+      if (m === 'buck') { c.fillStyle = '#fff'; c.lineWidth = 2.6; for (const s of [-1, 0]) { rr(c, s * 8 - 1, my + 3, 9, 12, 2); c.fill(); c.stroke(); } }
+      if (m === 'tongue') {
+        const w = Math.sin(t * 7 + ph) * 3;
+        c.beginPath(); c.moveTo(1, my + 5); c.lineTo(1, my + 17); c.quadraticCurveTo(10 + w, my + 30, 18 + w, my + 16); c.lineTo(13, my + 4); c.closePath();
+        c.fillStyle = '#F2788A'; c.fill(); c.strokeStyle = INK; c.lineWidth = 3; c.stroke(); line(10 + w * .5, my + 7, 12 + w * .8, my + 17, 2, '#c24a5e');
+      }
+      if (m === 'smirk' && F.gold) { c.fillStyle = '#FFD54A'; rr(c, 3, my - 1, 7, 8, 2); c.fill(); c.strokeStyle = INK; c.lineWidth = 2; c.stroke(); }
+      if (m === 'smirk' && !F.gold) ell(15 + Math.sin(t * 2 + ph) * .8, my + 4, 4, 3.4, '#F2788A', INK, 2);
+    }
+  }
+  // phụ kiện bị khuôn mặt đè lên
+  if (F.band) { c.fillStyle = '#EF2F3F'; c.strokeStyle = INK; c.lineWidth = 3; rr(c, -52, -58, 104, 17, 4); c.fill(); c.stroke(); }
+  if (F.hat) {
+    c.fillStyle = '#F08A24'; c.strokeStyle = INK; c.lineWidth = 3; rr(c, -40, -80, 80, 15, 3); c.fill(); c.stroke();
+    ell(0, -57, 72, 11, '#4B2D7F', INK, 3.4);
+  }
+  if (F.rainbow) { c.lineWidth = 5; c.lineCap = 'butt'; ['#F33', '#FA3', '#FE4', '#4D5', '#39F', '#74F'].forEach((col, i) => { c.strokeStyle = col; c.beginPath(); c.arc(0, -26, 60 - i * 5, Math.PI, TAU); c.stroke(); }); }
+  c.restore();
+}
+
 function drawRig(c, o, A, upset) {
   const def = COWS[o.type], R = RIG[o.type], T = RIG_TUNE[o.type] || {}, k0 = def.skinK || 1.23, U = 140 * k0 / RIG_CH, hw = R.hw;
   const t = o.t || 0, p = rigPose(o, T, upset), tp = upset ? (R.tailH || R.tail) : R.tail;
@@ -110,7 +238,7 @@ function drawRig(c, o, A, upset) {
     if (T.hue) { c.save(); try { c.filter = 'hue-rotate(' + Math.round((t * 70) % 360) + 'deg)'; } catch (e) { /* trình duyệt cũ */ } img('body'); c.restore(); } else img('body');
     joint(150 + (hw - 4), 238, 0, 0, p.rotR, () => img('armR'));
     joint(150 - (hw - 4), 238, 0, 0, p.rotL, () => img('armL'));
-    joint(150, 214, 0, p.hy, p.hrot, () => img('head'));
+    joint(150, 214, 0, p.hy, p.hrot, () => { img('head'); if (!CLASSIC) drawFace(c, o, upset, U, X, Y); });
   }, p.bsx, p.bsy);
   if (T.glint) {
     c.save(); c.fillStyle = T.hue ? '#fff' : '#FFF6C4';

@@ -74,6 +74,7 @@ const UI = {
 
     addEventListener('keydown', e => {
       Sound.init();
+      if (e.key === 'Enter' && e.target && e.target.id === 'nameIn') { e.preventDefault(); this.act('savename'); return; }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key;
       if (k === 'Escape') { e.preventDefault(); this.back(); return; }
@@ -107,6 +108,8 @@ const UI = {
     game.cb.onCoin = () => { this.el.hGoldChip.classList.remove('bump'); void this.el.hGoldChip.offsetWidth; this.el.hGoldChip.classList.add('bump'); };
     game.cb.onEnd = res => {
       this.el.hPull.classList.remove('on');
+      res.player = Save.data.player || 'Ẩn danh';
+      this.pending = Board.submit({ name: res.player, score: Math.round(res.score), level: res.level.id, win: res.win });
       clearTimeout(this.resultT);
       this.resultT = setTimeout(() => { if (game.mode === 'end') { this.el.hud.classList.add('off'); this.show('result', res); } }, res.win ? 1300 : 900);
     };
@@ -142,14 +145,21 @@ const UI = {
   back() {
     if (game.mode === 'play' && !game.paused) return this.pause();
     if (game.paused && this.cur === 'pause') return this.resume();
-    if (['levels', 'shop', 'coll', 'achv', 'settings'].includes(this.cur)) this.show('menu');
+    if (['levels', 'shop', 'coll', 'achv', 'settings', 'board', 'name'].includes(this.cur)) this.show('menu');
   },
 
   act(a, d) {
     Sound.play('ui');
     switch (a) {
       case 'menu': this.toMenu(); break;
-      case 'levels': this.show('levels'); break;
+      case 'levels': this.show(Save.data.player ? 'levels' : 'name'); break;
+      case 'rename': this.show('name'); break;
+      case 'board': this.show('board'); break;
+      case 'savename': {
+        const inp = document.getElementById('nameIn'), n = Board.cleanName(inp && inp.value);
+        if (!n) { this.toast('<b>Hãy nhập tên của bạn</b><span>Tên sẽ hiện trên bảng thành tích.</span>', 'warn'); if (inp) inp.focus(); break; }
+        Save.data.player = n; Save.commit(); this.show('levels'); break;
+      }
       case 'shop': this.show('shop'); break;
       case 'coll': this.show('coll'); break;
       case 'achv': this.show('achv'); break;
@@ -299,7 +309,8 @@ const UI = {
     ui.className = 'ui s-' + name + ' in';
     ui.innerHTML = SCREENS[name](arg, this);
     if (name === 'coll') this.animCollection();
-    if (name === 'result') this.animResult(arg);
+    if (name === 'result') { this.animResult(arg); this.fillBoard('rBoard', this.pending, 7, arg.player); }
+    if (name === 'board') this.fillBoard('bBoard', Board.list(), 50, Save.data.player);
     const f = ui.querySelector('[data-focus]') || ui.querySelector('button'); if (f) f.focus({ preventScroll: true });
   },
   refresh() {
@@ -330,6 +341,17 @@ const UI = {
       this.anim = requestAnimationFrame(loop);
     };
     this.anim = requestAnimationFrame(loop);
+  },
+  fillBoard(id, promise, limit, me) {
+    Promise.resolve(promise).then(res => {
+      const el = document.getElementById(id); if (!el || !res) return;
+      const key = String(me || '').toLowerCase(), rows = res.rows.slice(0, limit);
+      const li = rows.map((e, i) => `<li class="${e.name.toLowerCase() === key ? 'me' : ''} ${i < 3 ? 'top' + (i + 1) : ''}"><span class="rk">${i + 1}</span><span class="nm">${esc(e.name)}</span><span class="sc">${fmt(e.score)}</span><span class="lv">Màn ${e.level}</span></li>`).join('');
+      const mine = res.rows.findIndex(e => e.name.toLowerCase() === key);
+      el.innerHTML = (li ? `<ol>${li}</ol>` : '<p class="none">Chưa có ai trên bảng. Bạn sẽ là người đầu tiên!</p>')
+        + (mine >= limit ? `<p class="mine">Bạn đang hạng ${mine + 1}</p>` : '')
+        + (res.shared ? '' : '<p class="note">Không có máy chủ chung nên chỉ lưu trên máy này. Chạy start-game.bat để mọi người cùng thấy.</p>');
+    });
   },
   animResult(res) {
     const sEl = document.getElementById('rScore'), gEl = document.getElementById('rGold');
@@ -369,9 +391,24 @@ const SCREENS = {
           <button class="btn leaf" data-act="coll">Bộ sưu tập bò</button>
           <button class="btn leaf" data-act="achv">Thành tích</button>
           <button class="btn leaf" data-act="settings">Cài đặt</button>
+          <button class="btn leaf wide2" data-act="board">Bảng xếp hạng</button>
         </div>
       </nav>
     </div>`;
+  },
+
+  name() {
+    return `<div class="panel pause namep">
+      <h2>Bạn tên gì?</h2>
+      <p class="sub">Tên sẽ hiện trên bảng xếp hạng để mọi người thấy thành tích của bạn.</p>
+      <input id="nameIn" class="name-in" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Nhập tên" value="${esc(Save.data.player)}" data-focus>
+      <div class="stack"><button class="btn big" data-act="savename">Vào chơi</button>
+      <button class="btn ghost" data-act="menu">Quay lại</button></div></div>`;
+  },
+
+  board() {
+    return `<div class="panel mid-panel">${head('Xếp hạng', `<span class="count">Điểm cao nhất mỗi người</span>`)}
+      <div class="scroll board" id="bBoard"><p class="none">Đang tải…</p></div></div>`;
   },
 
   levels() {
@@ -390,7 +427,7 @@ const SCREENS = {
       <span class="t"><b>Thử thách vô tận</b><em>${eLocked ? 'Qua màn 6 để mở' : `Đang ở màn ${eLevel}. Độ khó tăng dần`}</em></span>
       <span class="b">${eBest ? 'Cao nhất ' + fmt(eBest) : ''}</span></button>`;
     return `<div class="panel wide-panel">
-      ${head('Chọn màn chơi')}
+      ${head('Chọn màn chơi', `<button class="btn ghost sm" data-act="rename" aria-label="Đổi tên người chơi">Người chơi: <b>${esc(d.player)}</b> ✎</button>`)}
       <div class="lvl-grid">${cards}${endless}</div></div>`;
   },
 
@@ -481,10 +518,11 @@ const SCREENS = {
     const total = r.gold + r.bonus + r.timeBonus;
     return `<div class="panel result ${r.win ? 'win' : 'lose'}">
       <h2>${r.win ? 'Vượt màn!' : 'Chưa đạt mục tiêu'}</h2>
-      <p class="sub">${esc(r.level.endless ? r.level.name : 'Màn ' + r.level.id + ': ' + r.level.name)}</p>
+      <p class="sub">${esc(r.player)} · ${esc(r.level.endless ? r.level.name : 'Màn ' + r.level.id + ': ' + r.level.name)}</p>
       <div class="score-big"><b id="rScore">0</b><span>/ ${fmt(r.target)} điểm</span>${r.isBest ? '<em>Kỷ lục mới</em>' : ''}</div>
       <div class="res-cols">
         <ul class="caught">${caught}</ul>
+        <div class="board small"><h3>Bảng xếp hạng</h3><div id="rBoard"><p class="none">Đang tải…</p></div></div>
         <dl class="facts">
           <div><dt>Quăng trượt</dt><dd>${r.missed}</dd></div>
           <div><dt>Bò thoát</dt><dd>${r.escaped}</dd></div>
