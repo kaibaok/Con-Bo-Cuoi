@@ -206,13 +206,13 @@ RIDERS.plane = (c, o) => {
   c.save(); c.beginPath(); c.ellipse(0, -60, 66, 23, 0, 0, TAU); c.clip(); c.fillStyle = '#FFF3E2'; c.fillRect(-70, -52, 140, 10); c.fillStyle = '#F6B93B'; c.fillRect(-70, -44, 140, 4); c.restore();
   rEll(c, 0, -60, 66, 23, null, RK, 4.5);
   // lái máy bay: đầu bò trong buồng lái
-  riderHead(c, o, 8, -88, .34, null, cc => {
+  riderHead(c, o, 8, -86, .4, null, cc => {
     cc.beginPath(); cc.moveTo(-50, -24); cc.quadraticCurveTo(-56, -92, 0, -94); cc.quadraticCurveTo(56, -92, 50, -24); cc.quadraticCurveTo(0, -40, -50, -24); cc.closePath();
     cc.fillStyle = '#8A5A2B'; cc.fill(); cc.strokeStyle = RK; cc.lineWidth = 4; cc.stroke();
     for (const s of [-1, 1]) { rEll(cc, s * 24, -44, 15, 15, 'rgba(160,230,255,.85)', RK, 4); }
     rLine(cc, [[-50, -44], [50, -44]], 4);
   });
-  c.beginPath(); c.ellipse(8, -76, 28, 24, 0, Math.PI, TAU); c.closePath();
+  c.beginPath(); c.ellipse(8, -74, 34, 38, 0, Math.PI, TAU); c.closePath();
   c.fillStyle = 'rgba(170,225,255,.35)'; c.fill(); c.strokeStyle = 'rgba(80,150,190,.9)'; c.lineWidth = 3; c.stroke();
   const sc = Math.sin(t * 2.4) * 5; rLine(c, [[-10, -66], [-34, -70 + sc], [-52, -64 + sc * 1.4]], 6, '#F6B93B');
   rEll(c, 4, -50, 30, 8, '#F6B93B', RK, 3.5, -.08);
@@ -229,7 +229,7 @@ RIDERS.ufo = (c, o) => {
   rPoly(c, [[-24, -48], [24, -48], [74, 18], [-74, 18]], '#bff7ff', null);
   c.restore();
   c.translate(0, Math.sin(t * 2.4 + (o.ph || 0)) * 3); c.rotate(Math.sin(t * 1.8) * .05);
-  riderHead(c, o, 0, -92, .36, null, cc => { for (const s of [-1, 1]) { rLine(cc, [[s * 20, -58], [s * 34, -96]], 5, '#3d8f58'); rEll(cc, s * 35, -100, 8, 8, '#7CF0BF', RK, 3); } });
+  riderHead(c, o, 0, -90, .42, null, cc => { for (const s of [-1, 1]) { rLine(cc, [[s * 20, -58], [s * 34, -96]], 5, '#3d8f58'); rEll(cc, s * 35, -100, 8, 8, '#7CF0BF', RK, 3); } });
   c.beginPath(); c.ellipse(0, -66, 38, 48, 0, Math.PI, TAU); c.closePath();
   c.fillStyle = 'rgba(150,240,255,.32)'; c.fill(); c.strokeStyle = '#5fc4d6'; c.lineWidth = 3.5; c.stroke();
   c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 3; c.beginPath(); c.arc(0, -66, 30, Math.PI * 1.1, Math.PI * 1.35); c.stroke();
