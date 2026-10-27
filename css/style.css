@@ -388,3 +388,11 @@ label.btn.sm:focus-within { outline: calc(4 * var(--p)) solid var(--straw-hi); }
 .result .btn.big { padding: calc(12 * var(--p)) calc(30 * var(--p)); font-size: calc(40 * var(--p)); }
 .actions .btn:not(.big) { padding: calc(8 * var(--p)); }
 .board.small li { padding: calc(3 * var(--p)) calc(10 * var(--p)); }
+
+.face-set { display: grid; grid-template-columns: calc(230 * var(--p)) 1fr; gap: calc(20 * var(--p)); align-items: center; padding: calc(18 * var(--p)) 0; border-bottom: calc(2 * var(--p)) solid rgba(255,255,255,.1); }
+.face-prev canvas { width: 100%; aspect-ratio: 26 / 15; border-radius: calc(16 * var(--p)); background: linear-gradient(#8fd0ee, #F0D08C 60%, #D9A95E); display: block; }
+.face-ctl b { font-family: var(--font-d); font-size: calc(28 * var(--p)); }
+.face-ctl p { margin: calc(2 * var(--p)) 0 calc(10 * var(--p)); font-size: calc(18 * var(--p)); color: var(--ink-dim); line-height: 1.35; }
+.face-sl { display: grid; gap: calc(6 * var(--p)); margin-top: calc(10 * var(--p)); }
+.face-sl label { display: grid; grid-template-columns: calc(120 * var(--p)) 1fr; align-items: center; font-size: calc(17 * var(--p)); color: var(--ink-dim); }
+.face-sl input { width: 100%; accent-color: var(--straw); }

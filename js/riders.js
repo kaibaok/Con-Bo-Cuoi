@@ -1,9 +1,7 @@
 'use strict';
 /* Bò mới của Bắn Bò: mỗi con có trang phục hoặc phương tiện riêng, vẽ bằng canvas.
-   Đầu bò là ảnh gương mặt khi mở bo-style=1, còn mặc định là mặt hoạt hình như các bò khác. */
+   Đầu bò dùng chung drawFace với các bò khác: mặt hoạt hình, hoặc gương mặt người chơi chọn trong Cài đặt. */
 
-const RIDER_PHOTO = CLASSIC ? Object.assign(new Image(), { src: 'assets/cows/rig/big.png' }) : null;
-const RIDER_PHOTO_BOX = [299 * 7 + 150 - 48, 90, 96, 124];   // vùng gương mặt trong ô đầu của ảnh rig
 Object.assign(FACES, {
   skirt: { skin: '#FFF3E2', a: 50, eye: 'derp', mouth: 'buck', brow: 'raise' },
   drag: { skin: '#FFF0E6', a: 50, eye: 'sparkle', mouth: 'tongue', brow: 'soft' },
@@ -68,15 +66,7 @@ function riderHead(c, o, x, y, k, behind, deco, tilt = 0) {
     c.save(); c.translate(s * 60, -2); c.rotate(s * .45);
     rEll(c, 0, 0, 28, 15, RCREAM, RK, 4); rEll(c, 0, 0, 17, 8, '#F8B4AA', null); c.restore();
   }
-  if (RIDER_PHOTO && RIDER_PHOTO.complete && RIDER_PHOTO.naturalWidth) {
-    c.save(); c.beginPath(); c.ellipse(0, 0, 48, 62, 0, 0, TAU); c.clip();
-    c.drawImage(RIDER_PHOTO, RIDER_PHOTO_BOX[0], RIDER_PHOTO_BOX[1], RIDER_PHOTO_BOX[2], RIDER_PHOTO_BOX[3], -48, -62, 96, 124);
-    c.restore(); rEll(c, 0, 0, 48, 62, null, RK, 4);
-    if (upset) { // ảnh không đổi nét mặt nên thêm dấu hiệu bị bắn trúng
-      c.strokeStyle = '#E5382B'; c.lineWidth = 7; c.lineCap = 'round';
-      c.beginPath(); c.moveTo(40, -62); c.quadraticCurveTo(52, -54, 40, -42); c.moveTo(58, -62); c.quadraticCurveTo(46, -54, 58, -42); c.stroke();
-    }
-  } else drawFace(c, { type: o.type, t, ph, mood: o.mood }, upset, 1, v => v - 150, v => v - 152);
+  drawFace(c, { type: o.type, t, ph, mood: o.mood }, upset, 1, v => v - 150, v => v - 152);
   if (deco) deco(c);
   c.restore();
 }

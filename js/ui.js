@@ -87,8 +87,13 @@ const UI = {
     this.el.btnPotion.addEventListener('pointerdown', e => { e.preventDefault(); game.usePotion(); });
 
     st.addEventListener('change', e => {
+      if (e.target.dataset && e.target.dataset.face === 'file') { this.loadFace(e.target.files && e.target.files[0]); e.target.value = ''; return; }
+      if (e.target.dataset && e.target.dataset.faceAdj) Face.save();
       const id = e.target.dataset && e.target.dataset.skin;
       if (id) { this.loadSkin(id, e.target.files && e.target.files[0], e.target.dataset.kind || 'src'); e.target.value = ''; }
+    });
+    st.addEventListener('input', e => {
+      const k = e.target.dataset && e.target.dataset.faceAdj; if (k) Face.adjust(k, +e.target.value);
     });
     st.addEventListener('click', e => {
       const b = e.target.closest('[data-act]'); if (!b) return;
@@ -174,6 +179,14 @@ const UI = {
     fr.readAsDataURL(file);
   },
 
+  loadFace(file) {
+    if (!file || !file.type.startsWith('image/')) { this.toast('<b>Không đọc được tệp</b><span>Hãy chọn ảnh PNG, JPG hoặc WEBP.</span>', 'warn'); return; }
+    Face.set(file)
+      .then(() => this.toast('<b>Đã đổi gương mặt bò</b><span>Ảnh chỉ nằm trong máy này, không gửi đi đâu.</span>'))
+      .catch(err => this.toast(err && err.message === 'quota' ? '<b>Bộ nhớ trình duyệt đầy</b><span>Hãy thử ảnh nhỏ hơn.</span>' : '<b>Ảnh bị lỗi</b><span>Thử một ảnh khác nhé.</span>', 'warn'))
+      .finally(() => this.refresh());
+  },
+
   back() {
     if (game.mode === 'play' && !game.paused) return this.pause();
     if (game.paused && this.cur === 'pause') return this.resume();
@@ -211,6 +224,7 @@ const UI = {
       case 'skinflip': Skins.toggle(d.id, 'flip'); this.refresh(); break;
       case 'skinoval': Skins.toggle(d.id, 'oval'); this.refresh(); break;
       case 'skinclear': Skins.clear(d.id); this.toast('<b>Đã dùng lại hình gốc</b><span>' + esc(COWS[d.id].name) + '</span>'); this.refresh(); break;
+      case 'faceclear': Face.clear(); this.toast('<b>Đã dùng lại mặt hoạt hình</b>'); this.refresh(); break;
       case 'diff': Save.data.settings.difficulty = +d.val; Save.commit(); this.refresh(); break;
       case 'reset':
         if (!this.confirmReset) { this.confirmReset = true; this.refresh(); setTimeout(() => { this.confirmReset = false; if (this.cur === 'settings') this.refresh(); }, 4000); }
@@ -359,7 +373,7 @@ const UI = {
     const ui = this.el.ui;
     ui.className = 'ui s-' + name + ' in';
     ui.innerHTML = SCREENS[name](arg, this);
-    if (name === 'coll' || name === 'scoll') this.animCollection();
+    if (name === 'coll' || name === 'scoll' || name === 'settings') this.animCollection();
     if (name === 'result') { this.animResult(arg); this.fillBoard('rBoard', this.pending, 6, arg.player); }
     if (name === 'board') this.fillBoard('bBoard', Board.list(Save.data.mode), 50, Save.data.player);
     const f = ui.querySelector('[data-focus]') || ui.querySelector('button'); if (f) f.focus({ preventScroll: true });
@@ -371,7 +385,7 @@ const UI = {
     this.el.ui.classList.remove('in');
     this.el.ui.innerHTML = SCREENS[this.cur](this.arg, this);
     const l2 = this.el.ui.querySelector('.scroll'); if (l2) l2.scrollTop = top;
-    if (this.cur === 'coll' || this.cur === 'scoll') this.animCollection();
+    if (this.cur === 'coll' || this.cur === 'scoll' || this.cur === 'settings') { this.stopAnim(); this.animCollection(); }
     if (act && act.act) {
       const sel = '[data-act="' + act.act + '"]' + (act.id ? '[data-id="' + act.id + '"]' : '') + (act.key ? '[data-key="' + act.key + '"]' : '') + (act.val ? '[data-val="' + act.val + '"]' : '');
       const n = this.el.ui.querySelector(sel); if (n) n.focus({ preventScroll: true });
@@ -387,7 +401,7 @@ const UI = {
         const c = cv.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height);
         c.setTransform(cv.width / 260, 0, 0, cv.width / 260, 0, 0);
         const type = cv.dataset.type, def = COWS[type];
-        drawCow(c, { type, x: 130, y: 150, s: Math.min(1.35, .75 + def.size * .45) * .98, face: 1, walk: t * 4, t, ph: 0.3, moving: true, lift: def.fly ? 26 + Math.sin(t * 2.6) * 5 : 0, act: ['hop', 'wave', 'look', 'stretch', 'dance'][Math.floor(t / 2.5) % 5], actT: (t % 2.5) / 2.5 });
+        drawCow(c, { type, x: 130, y: cv.dataset.y ? +cv.dataset.y : 150, s: cv.dataset.s ? +cv.dataset.s : Math.min(1.35, .75 + def.size * .45) * .98, face: 1, walk: t * 4, t, ph: 0.3, moving: true, lift: def.fly ? 26 + Math.sin(t * 2.6) * 5 : 0, act: ['hop', 'wave', 'look', 'stretch', 'dance'][Math.floor(t / 2.5) % 5], actT: (t % 2.5) / 2.5 });
       });
       this.anim = requestAnimationFrame(loop);
     };
@@ -626,6 +640,11 @@ const SCREENS = {
       ${sw('sfx', 'Hiệu ứng âm thanh', 'Tiếng dây, bò và vàng.')}
       ${sw('assist', 'Chế độ giữ phím', 'Giữ E, Space hoặc nút KÉO để tự kéo, với lực nhẹ hơn.')}
       <div class="set-row"><div><b>Độ khó</b><p>Thay đổi số lần nhấn cần để kéo bò.</p></div><div class="segs">${dif}</div></div>
+      <div class="face-set"><div class="face-prev"><canvas width="390" height="225" data-type="normal" data-s=".8" data-y="150" role="img" aria-label="Xem trước gương mặt bò"></canvas></div>
+        <div class="face-ctl"><b>Gương mặt bò</b><p>Chọn một ảnh mặt, game tự cắt và gắn vào mọi con bò. Ảnh chỉ lưu trên máy này, không tải lên máy chủ.</p>
+          <div class="skin-actions"><label class="btn ghost sm">${Face.data ? 'Đổi ảnh khác' : 'Chọn ảnh mặt'}<input class="sr" type="file" accept="image/*" data-face="file"></label>${Face.data ? '<button class="btn ghost sm" data-act="faceclear">Dùng mặt hoạt hình</button>' : ''}</div>
+          ${Face.data ? `<div class="face-sl">${[['zoom', 'Phóng to', 1, 3, .02], ['cx', 'Sang ngang', 0, 1, .01], ['cy', 'Lên xuống', 0, 1, .01]].map(([k, n, lo, hi, st]) => `<label><span>${n}</span><input type="range" min="${lo}" max="${hi}" step="${st}" value="${Face.data[k]}" data-face-adj="${k}" aria-label="${n}"></label>`).join('')}</div>` : ''}
+        </div></div>
       ${ADMIN ? `      <div class="skin-head"><b>Hình bò của bạn</b><p>Chọn ảnh của riêng bạn thay cho từng loại bò. Có thể chọn riêng ảnh lúc bình thường và ảnh lúc bị bắt dây. Ảnh PNG nền trong suốt đẹp nhất, ảnh có nền thì bật cắt oval. Mở game bằng start-game.bat thì ảnh được lưu thẳng vào thư mục assets/cows. Bạn cũng có thể tự bỏ ảnh vào thư mục đó, xem README trong thư mục.</p></div>
       ${COW_ORDER.map(id => { const sa = Skins.src(id, 'src'), sh = Skins.src(id, 'hooked'), th = (src, lbl) => `<div class="skin-thumb">${src ? `<img src="${src}" alt="">` : `<span>${lbl}</span>`}</div>`; return `<div class="skin-row"><b>${esc(COWS[id].name)}</b>
         <div class="skin-pair"><div>${th(sa, 'Hình gốc')}<label class="btn ghost sm">Ảnh bình thường<input class="sr" type="file" accept="image/*" data-skin="${id}" data-kind="src"></label></div>

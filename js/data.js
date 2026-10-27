@@ -4,7 +4,7 @@
 const W = 1280, H = 720;
 
 const COWS = {
-  normal: { id: 'normal', name: 'Bò thường', score: 10, gold: 5, size: 1, speed: 80, escape: 6.5, hook: .92, presses: 10, struggle: .25, weight: 60, diff: 'Dễ', desc: 'Hiền lành, hay dừng lại gặm cỏ. Con vật tập sự lý tưởng.' },
+  normal: { id: 'normal', skinK: 1.23, name: 'Bò thường', score: 10, gold: 5, size: 1, speed: 80, escape: 6.5, hook: .92, presses: 10, struggle: .25, weight: 60, diff: 'Dễ', desc: 'Hiền lành, hay dừng lại gặm cỏ. Con vật tập sự lý tưởng.' },
   small: { id: 'small', frames: 4, skinK: 1.23, name: 'Bò nhỏ', score: 8, gold: 4, size: .66, speed: 115, escape: 5, hook: .74, presses: 7, struggle: .3, weight: 26, diff: 'Khó quăng trúng', desc: 'Nhỏ và chạy nhanh nên khó móc, nhưng kéo rất nhẹ.' },
   big: { id: 'big', frames: 4, skinK: 1.23, name: 'Bò bự', score: 25, gold: 12, size: 1.45, speed: 55, escape: 9.5, hook: .97, presses: 22, struggle: .35, weight: 34, diff: 'Cần nhiều lực kéo', desc: 'Chậm, to, dễ quăng trúng. Phải kéo bền tay mới về.' },
   fast: { id: 'fast', frames: 4, skinK: 1.23, name: 'Bò nhanh', score: 18, gold: 9, size: .95, speed: 160, escape: 5, hook: .8, presses: 12, struggle: .25, weight: 22, diff: 'Cửa sổ bắt ngắn', desc: 'Chạy vút qua đồng, để lại một vệt bụi. Quăng đón đầu mới trúng.' },
@@ -15,7 +15,6 @@ const COWS = {
   ghost: { id: 'ghost', frames: 4, name: 'Bò ma', score: 70, gold: 35, size: 1, speed: 95, escape: 9, hook: .74, presses: 30, struggle: .7, weight: 4, rare: 1, fly: 38, skinK: 1.23, halloween: 1, diff: 'Bay lơ lửng, chập chờn', desc: 'Trôi lơ lửng, lúc rõ lúc mờ. Bị bắt thì hóa xanh lục và giãy rất nhanh.' },
   rainbow: { id: 'rainbow', frames: 4, skinK: 1.23, name: 'Bò ngũ sắc', score: 150, gold: 75, size: 1, speed: 140, escape: 9, hook: .66, presses: 44, struggle: .85, weight: 3, rare: 1, diff: 'Cực hiếm', desc: 'Truyền thuyết đồng cỏ. Thấy là phải thử một lần.' }
 };
-if (!CLASSIC) COWS.normal.skinK = 1.23;
 const COW_ORDER = ['normal', 'small', 'big', 'fast', 'mad', 'red', 'gold', 'rainbow', 'witch', 'ghost'];
 
 const LEVELS = [
@@ -252,3 +251,69 @@ const Skins = {
   }
 };
 Skins.load();
+
+/* Gương mặt tuỳ chỉnh: ảnh người chơi chọn được tự cắt, căn vào khung mặt của mọi con bò.
+   Chỉ lưu trong localStorage của trình duyệt này, không bao giờ gửi lên máy chủ. */
+const Face = {
+  KEY: 'batbo.face', TW: 200, TH: 256, MAX: 480,
+  data: null, im: null, tex: null,
+  load() {
+    try { this.data = JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { this.data = null; }
+    if (!this.data || !this.data.img) { this.data = null; return; }
+    const im = new Image(); im.onload = () => { this.im = im; this.render(); }; im.src = this.data.img;
+  },
+  ready() { return !!this.tex; },
+  /* tâm cắt (cx, cy tính theo tỉ lệ ảnh) và độ phóng: ra ảnh vuông vức quanh mặt, giữ kín khung oval */
+  render() {
+    const d = this.data, im = this.im; if (!d || !im) { this.tex = null; return; }
+    const cv = this.tex || document.createElement('canvas'); cv.width = this.TW; cv.height = this.TH;
+    const s = Math.max(this.TW / im.width, this.TH / im.height) * d.zoom;
+    const hw = this.TW / 2 / s, hh = this.TH / 2 / s;
+    const cx = Math.min(im.width - hw, Math.max(hw, d.cx * im.width)), cy = Math.min(im.height - hh, Math.max(hh, d.cy * im.height));
+    const c = cv.getContext('2d'); c.clearRect(0, 0, this.TW, this.TH);
+    c.drawImage(im, cx - hw, cy - hh, hw * 2, hh * 2, 0, 0, this.TW, this.TH);
+    this.tex = cv;
+  },
+  /* chọn ảnh mới: thu nhỏ rồi tự tìm mặt để căn; không có bộ dò mặt thì căn giữa, hơi lệch lên trên như ảnh chân dung */
+  async set(file) {
+    const url = await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(file); });
+    const src = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+    const k = Math.min(1, this.MAX / Math.max(src.width, src.height)), cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(src.width * k)); cv.height = Math.max(1, Math.round(src.height * k));
+    cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+    const img = cv.toDataURL('image/jpeg', .88);
+    const d = { img, zoom: 1, cx: .5, cy: cv.height > cv.width * 1.1 ? .42 : .5 };
+    try {
+      if (window.FaceDetector) {
+        const f = (await new FaceDetector({ maxDetectedFaces: 1, fastMode: true }).detect(cv))[0];
+        if (f) {
+          const b = f.boundingBox;
+          d.cx = (b.x + b.width / 2) / cv.width; d.cy = (b.y + b.height / 2) / cv.height;
+          d.zoom = Math.min(3, Math.max(1, Math.min(cv.width / this.TW, cv.height / this.TH) / (b.height * 1.5 / this.TH)));
+        }
+      }
+    } catch (e) { /* không có bộ dò mặt: giữ căn giữa */ }
+    const prev = this.data; this.data = d;
+    const im = new Image(); await new Promise(ok => { im.onload = ok; im.src = img; }); this.im = im; this.render();
+    if (!this.save()) { this.data = prev; this.im = null; this.tex = null; if (prev) this.load(); throw new Error('quota'); }
+  },
+  adjust(key, v) { if (!this.data) return; this.data[key] = v; this.render(); },
+  save() { try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); return true; } catch (e) { return false; } },
+  clear() { this.data = null; this.im = null; this.tex = null; try { localStorage.removeItem(this.KEY); } catch (e) { /* bỏ qua */ } },
+  /* vẽ vào khung mặt, tâm ở (0,0), nửa trục a và b */
+  draw(c, a, b, upset, t) {
+    c.save(); c.beginPath(); c.ellipse(0, 0, a, b, 0, 0, TAU); c.clip();
+    c.drawImage(this.tex, -a, -b, a * 2, b * 2);
+    if (upset) { c.fillStyle = 'rgba(229,56,43,.24)'; c.fillRect(-a, -b, a * 2, b * 2); }
+    c.restore();
+    c.beginPath(); c.ellipse(0, 0, a, b, 0, 0, TAU); c.strokeStyle = '#2a1830'; c.lineWidth = 4; c.stroke();
+    if (upset) { // mặt thật không đổi nét, nên thêm giọt mồ hôi bay ra khi bị bắn trúng hoặc bắt dây
+      for (const s of [-1, 1]) {
+        const d = (t * 2.4 + (s > 0 ? .5 : 0)) % 1;
+        c.beginPath(); c.ellipse(s * a * (.95 + d * .3), -b * .3 + d * 26, 4 * (1 - d * .5), 6 * (1 - d * .5), 0, 0, TAU);
+        c.fillStyle = 'rgba(138,211,236,' + (1 - d) + ')'; c.fill();
+      }
+    }
+  }
+};
+Face.load();
